@@ -66,6 +66,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export interface AuthCheckResponse {
   require_auth: boolean;
+  demo_mode?: boolean;
+  demo_username?: string;
+  demo_password?: string;
 }
 
 export interface LoginResponse {

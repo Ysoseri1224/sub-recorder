@@ -102,6 +102,9 @@ docker compose up -d --build
 | `PORT` | `3000` | 监听端口 |
 | `STATIC_DIR` | `/app/static` | 前端静态文件目录 |
 | `DISABLE_AUTH` | — | 设为 `true` 或 `1` 禁用鉴权 |
+| `INIT_USERNAME` | `admin` | 首次启动时创建的用户名 |
+| `INIT_PASSWORD` | *随机生成* | 首次启动时创建的密码 |
+| `DEMO_MODE` | — | 设为 `true` 或 `1` 在登录页展示演示账号密码 |
 
 ### 用户管理
 
@@ -212,3 +215,5 @@ Docker Container
 ## License
 
 [AGPL-3.0](LICENSE)
+
+Copyright © 2025 [shenghuo2](https://github.com/shenghuo2) · [sub-recorder](https://github.com/shenghuo2/sub-recorder)

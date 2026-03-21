@@ -468,6 +468,23 @@ export function SettingsPage() {
             </Button>
           </div>
         )}
+        {/* 关于 */}
+        <div className="border-t pt-4 space-y-2">
+          <h3 className="font-medium text-sm">关于</h3>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>
+              <span className="font-medium text-foreground">Sub Recorder</span> — 个人订阅管理工具
+            </p>
+            <p>
+              © 2025{" "}
+              <a href="https://github.com/shenghuo2" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">shenghuo2</a>
+              {" · "}
+              <a href="https://github.com/shenghuo2/sub-recorder" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">GitHub</a>
+              {" · "}
+              AGPL-3.0
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -644,9 +644,23 @@ pub async fn check_auth() -> HttpResponse {
     use crate::auth::is_auth_disabled;
     
     let require_auth = !is_auth_disabled();
-    HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({
-        "require_auth": require_auth
-    })))
+    let demo_mode = std::env::var("DEMO_MODE")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false);
+
+    let mut resp = serde_json::json!({
+        "require_auth": require_auth,
+        "demo_mode": demo_mode
+    });
+
+    if demo_mode {
+        let demo_username = std::env::var("INIT_USERNAME").unwrap_or_else(|_| "admin".to_string());
+        let demo_password = std::env::var("INIT_PASSWORD").unwrap_or_else(|_| "demo".to_string());
+        resp["demo_username"] = serde_json::json!(demo_username);
+        resp["demo_password"] = serde_json::json!(demo_password);
+    }
+
+    HttpResponse::Ok().json(ApiResponse::ok(resp))
 }
 
 #[derive(serde::Serialize)]

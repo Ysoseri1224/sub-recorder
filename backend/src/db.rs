@@ -1054,14 +1054,15 @@ pub fn generate_random_password() -> String {
 }
 
 pub struct User {
-    pub id: i64,
+    pub _id: i64,
     pub username: String,
     pub password_hash: String,
-    pub created_at: String,
+    pub _created_at: String,
 }
 
 /// Initialize default user if no users exist
-/// Returns the generated password if a new user was created
+/// Supports INIT_USERNAME and INIT_PASSWORD environment variables
+/// Returns the generated/configured password if a new user was created
 pub fn init_default_user(conn: &Connection) -> Option<String> {
     // Check if any user exists
     let count: i64 = conn.query_row(
@@ -1071,15 +1072,16 @@ pub fn init_default_user(conn: &Connection) -> Option<String> {
     ).unwrap_or(0);
 
     if count == 0 {
-        let password = generate_random_password();
+        let username = std::env::var("INIT_USERNAME").unwrap_or_else(|_| "admin".to_string());
+        let password = std::env::var("INIT_PASSWORD").unwrap_or_else(|_| generate_random_password());
         let password_hash = hash_password(&password);
         let _ = conn.execute(
-            "INSERT INTO users (id, username, password_hash) VALUES (1, 'admin', ?1)",
-            params![password_hash],
+            "INSERT INTO users (id, username, password_hash) VALUES (1, ?1, ?2)",
+            params![username, password_hash],
         );
         log::info!("========================================");
         log::info!("首次启动，已创建默认用户");
-        log::info!("用户名: admin");
+        log::info!("用户名: {}", username);
         log::info!("密码: {}", password);
         log::info!("请登录后在设置中修改密码！");
         log::info!("========================================");
@@ -1093,10 +1095,10 @@ pub fn get_user(conn: &Connection) -> rusqlite::Result<Option<User>> {
     let mut stmt = conn.prepare("SELECT id, username, password_hash, created_at FROM users WHERE id = 1")?;
     let mut rows = stmt.query_map([], |row| {
         Ok(User {
-            id: row.get(0)?,
+            _id: row.get(0)?,
             username: row.get(1)?,
             password_hash: row.get(2)?,
-            created_at: row.get(3)?,
+            _created_at: row.get(3)?,
         })
     })?;
     match rows.next() {

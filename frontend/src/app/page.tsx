@@ -27,6 +27,7 @@ export default function Home() {
   // 鉴权状态
   const [authChecking, setAuthChecking] = useState(true);
   const [needLogin, setNeedLogin] = useState(false);
+  const [authInfo, setAuthInfo] = useState<api.AuthCheckResponse | undefined>();
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -52,7 +53,9 @@ export default function Home() {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const { require_auth } = await api.checkAuth();
+        const authResp = await api.checkAuth();
+        setAuthInfo(authResp);
+        const { require_auth } = authResp;
         if (require_auth) {
           // 需要鉴权，检查是否有有效 token
           const token = api.getAuthToken();
@@ -378,7 +381,7 @@ export default function Home() {
 
   // 需要登录
   if (needLogin) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return <LoginPage onLoginSuccess={handleLoginSuccess} authInfo={authInfo} />;
   }
 
   // Render the subscriptions page content

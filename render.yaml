@@ -10,3 +10,9 @@ services:
         value: /app/data/subscriptions.db
       - key: PORT
         value: "3000"
+      - key: INIT_USERNAME
+        sync: false
+      - key: INIT_PASSWORD
+        sync: false
+      - key: DEMO_MODE
+        sync: false
