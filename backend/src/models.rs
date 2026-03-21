@@ -19,6 +19,7 @@ pub enum BillingCycle {
 }
 
 impl BillingCycle {
+    #[allow(dead_code)]
     pub fn to_str(&self) -> String {
         match self {
             Self::Daily => "daily".to_string(),
@@ -75,6 +76,7 @@ impl BillingCycle {
 
 // ========== 提醒类型 ==========
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReminderType {
@@ -84,6 +86,7 @@ pub enum ReminderType {
     OneWeek,
 }
 
+#[allow(dead_code)]
 impl ReminderType {
     pub fn to_str(&self) -> &'static str {
         match self {

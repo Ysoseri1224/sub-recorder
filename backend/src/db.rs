@@ -858,7 +858,6 @@ fn build_scene_summary(conn: &Connection, scene: &Scene) -> rusqlite::Result<Sce
     let mut total_price = 0.0;
     let mut nearest_next_bill: Option<NaiveDate> = None;
     let mut previews = Vec::new();
-    let mut active_count = 0;
 
     for sub in &subs {
         // Skip expired subscriptions for price calculation
@@ -883,8 +882,6 @@ fn build_scene_summary(conn: &Connection, scene: &Scene) -> rusqlite::Result<Sce
         if is_expired || sub.is_suspended {
             continue; // Don't count expired or suspended subs in totals
         }
-
-        active_count += 1;
 
         // Use effective_records if available, otherwise use sub's base price
         let effective_records = effective_map.get(&sub.id);
