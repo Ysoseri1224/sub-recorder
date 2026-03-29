@@ -329,8 +329,7 @@ export function SubscriptionDetailSheet({
                         {detail.name}
                       </SheetTitle>
                       <p className="text-sm opacity-80">
-                        {getBillingCycleLabel(detail.billing_cycle)}
-                        {detail.is_one_time && " · 一次性"}
+                        {detail.is_one_time ? "一次性" : getBillingCycleLabel(detail.billing_cycle)}
                       </p>
                     </div>
                   </div>
@@ -345,7 +344,7 @@ export function SubscriptionDetailSheet({
                           <span key={i} className="text-3xl font-bold">
                             {i > 0 && <span className="text-lg opacity-50 mx-1">+</span>}
                             {formatCurrencyCompact(r.amount, r.currency)}
-                            {(!detail.is_one_time || rCycle) && (
+                            {!detail.is_one_time && (
                               <span className="text-sm font-medium opacity-70">
                                 {getBillingCycleShort(rCycle, getCycleFormat())}
                               </span>
@@ -495,9 +494,11 @@ export function SubscriptionDetailSheet({
                             <span className={`font-medium ${recordExpired ? "text-muted-foreground" : ""}`}>
                               {formatCurrencyCompact(record.amount, record.currency)}
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              {record.billing_cycle ? getBillingCycleLabel(record.billing_cycle) : "默认周期"}
-                            </span>
+                            {!detail.is_one_time && (
+                              <span className="text-xs text-muted-foreground">
+                                {record.billing_cycle ? getBillingCycleLabel(record.billing_cycle) : "默认周期"}
+                              </span>
+                            )}
                             {record.notes && (
                               <span className="text-xs text-muted-foreground">
                                 · {record.notes}

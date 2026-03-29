@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type SortField = "billing_date" | "name" | "category" | "price_high" | "price_low";
+export type SortField = "billing_date" | "name" | "category" | "price";
 
 interface Props {
   sortBy: SortField;
@@ -16,8 +16,7 @@ const SORT_OPTIONS: { id: SortField; label: string }[] = [
   { id: "billing_date", label: "扣款日期" },
   { id: "name", label: "名称" },
   { id: "category", label: "类别" },
-  { id: "price_high", label: "价格最贵" },
-  { id: "price_low", label: "价格最便宜" },
+  { id: "price", label: "价格" },
 ];
 
 export function SortOptions({ sortBy, reversed, onChange }: Props) {

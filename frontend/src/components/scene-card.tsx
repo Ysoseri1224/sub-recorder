@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { SceneWithSummary } from "@/lib/types";
 import { getBillingCycleShort, cycleToMonths } from "@/lib/types";
-import { getCycleFormat, getTargetCurrency } from "@/components/settings-page";
+import { getCycleFormat, getTargetCurrency, getNormalizeCycle } from "@/components/settings-page";
 import { formatCurrencyCompact, convertCurrency } from "@/lib/currency";
 import { intToHex, getContrastColor } from "@/lib/color";
 import { Layers } from "lucide-react";
@@ -15,12 +15,14 @@ interface Props {
 }
 
 export function SceneCard({ scene, onClick, exchangeRates = {} }: Props) {
-  const bgColor = scene.color ? intToHex(scene.color) : "#6366f1";
+  const bgColor = scene.color ? intToHex(scene.color) : "#ffffff";
   const textColor = getContrastColor(bgColor);
 
-  // Compute currency-converted total using effective_records
+  // Determine display cycle: use global normalize setting, fallback to scene's billing_cycle
+  const normSetting = getNormalizeCycle();
+  const displayCycleName = normSetting !== "auto" ? normSetting : scene.billing_cycle;
   const displayCurrency = getTargetCurrency();
-  const sceneMonths = cycleToMonths(scene.billing_cycle);
+  const displayMonths = cycleToMonths(displayCycleName);
   const convertedTotal = useMemo(() => {
     return scene.sub_previews.reduce((sum, p) => {
       // Skip expired and suspended
@@ -32,7 +34,7 @@ export function SceneCard({ scene, onClick, exchangeRates = {} }: Props) {
         return sum + records.reduce((s, r) => {
           const months = cycleToMonths(r.billing_cycle || p.billing_cycle);
           const monthly = convertCurrency(r.amount, r.currency, displayCurrency, exchangeRates) / months;
-          return s + monthly * sceneMonths;
+          return s + monthly * displayMonths;
         }, 0);
       }
       // Fallback to base price
@@ -40,10 +42,10 @@ export function SceneCard({ scene, onClick, exchangeRates = {} }: Props) {
       const currency = p.currency ?? "CNY";
       const subMonths = cycleToMonths(p.billing_cycle);
       const monthly = price / subMonths;
-      const normalized = monthly * sceneMonths;
+      const normalized = monthly * displayMonths;
       return sum + convertCurrency(normalized, currency, displayCurrency, exchangeRates);
     }, 0);
-  }, [scene.sub_previews, sceneMonths, exchangeRates, displayCurrency]);
+  }, [scene.sub_previews, displayMonths, exchangeRates, displayCurrency]);
 
   const nextDateStr = scene.nearest_next_bill
     ? new Date(scene.nearest_next_bill).toLocaleDateString("zh-CN", {
@@ -110,7 +112,7 @@ export function SceneCard({ scene, onClick, exchangeRates = {} }: Props) {
         <p className="font-bold text-lg">
           {formatCurrencyCompact(convertedTotal, displayCurrency)}
           <span className="text-sm font-medium opacity-70">
-            {getBillingCycleShort(scene.billing_cycle, getCycleFormat())}
+            {getBillingCycleShort(displayCycleName, getCycleFormat())}
           </span>
         </p>
         <p className="text-xs opacity-70">

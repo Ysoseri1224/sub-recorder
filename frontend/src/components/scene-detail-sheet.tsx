@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -19,11 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Trash2, ExternalLink, Upload, Layers } from "lucide-react";
+import { Pencil, Trash2, ExternalLink, Layers } from "lucide-react";
+import { IconUpload } from "@/components/icon-upload";
 import type { SceneWithSummary } from "@/lib/types";
 import { cycleToMonths, getBillingCycleShort } from "@/lib/types";
 import { PRESET_COLORS, intToHex, hexToInt, getContrastColor } from "@/lib/color";
-import { getCycleFormat, getTargetCurrency } from "@/components/settings-page";
+import { getCycleFormat, getTargetCurrency, getNormalizeCycle } from "@/components/settings-page";
 import { formatCurrencyCompact, convertCurrency } from "@/lib/currency";
 import * as api from "@/lib/api";
 
@@ -35,8 +36,6 @@ interface Props {
   exchangeRates?: Record<string, number>;
 }
 
-const ACCEPTED_TYPES = "image/png,image/jpeg,image/jpg,image/svg+xml,image/webp,image/gif";
-
 export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchangeRates = {} }: Props) {
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -46,11 +45,10 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
   const [editIcon, setEditIcon] = useState<string | null>(null);
   const [editIconMime, setEditIconMime] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const openEdit = () => {
     if (!scene) return;
-    setEditColor(scene.color ? intToHex(scene.color) : "#6366f1");
+    setEditColor(scene.color ? intToHex(scene.color) : "#ffffff");
     setEditNotes(scene.notes ?? "");
     setEditLink(scene.link ?? "");
     setEditIcon(scene.icon ?? null);
@@ -95,30 +93,16 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("图片不能超过 2MB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(",")[1];
-      setEditIcon(base64);
-      setEditIconMime(file.type || "image/png");
-    };
-    reader.readAsDataURL(file);
-  };
 
   if (!scene) return null;
 
-  const bgColor = scene.color ? intToHex(scene.color) : "#6366f1";
+  const bgColor = scene.color ? intToHex(scene.color) : "#ffffff";
   const textColor = getContrastColor(bgColor);
 
+  const normSetting = getNormalizeCycle();
+  const displayCycleName = normSetting !== "auto" ? normSetting : scene.billing_cycle;
   const displayCurrency = getTargetCurrency();
-  const sceneMonths = cycleToMonths(scene.billing_cycle);
+  const displayMonths = cycleToMonths(displayCycleName);
   const convertedTotal = scene.sub_previews.reduce((sum, p) => {
     // Skip expired and suspended
     if (p.is_expired || p.is_suspended) return sum;
@@ -129,7 +113,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
       return sum + records.reduce((s, r) => {
         const months = cycleToMonths(r.billing_cycle || p.billing_cycle);
         const monthly = convertCurrency(r.amount, r.currency, displayCurrency, exchangeRates) / months;
-        return s + monthly * sceneMonths;
+        return s + monthly * displayMonths;
       }, 0);
     }
     // Fallback to base price
@@ -137,7 +121,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
     const currency = p.currency ?? "CNY";
     const subMonths = cycleToMonths(p.billing_cycle);
     const monthly = price / subMonths;
-    const normalized = monthly * sceneMonths;
+    const normalized = monthly * displayMonths;
     return sum + convertCurrency(normalized, currency, displayCurrency, exchangeRates);
   }, 0);
 
@@ -184,7 +168,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                 <span className="text-3xl font-bold">
                   {formatCurrencyCompact(convertedTotal, displayCurrency)}
                   <span className="text-sm font-medium opacity-70">
-                    {getBillingCycleShort(scene.billing_cycle, getCycleFormat())}
+                    {getBillingCycleShort(displayCycleName, getCycleFormat())}
                   </span>
                 </span>
               </div>
@@ -255,7 +239,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                       converted = records.reduce((s, r) => {
                         const months = cycleToMonths(r.billing_cycle || p.billing_cycle);
                         const monthly = convertCurrency(r.amount, r.currency, displayCurrency, exchangeRates) / months;
-                        return s + monthly * sceneMonths;
+                        return s + monthly * displayMonths;
                       }, 0);
                     } else {
                       // Fallback to base price
@@ -263,7 +247,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                       const currency = p.currency ?? "CNY";
                       const subMonths = cycleToMonths(p.billing_cycle);
                       const monthly = price / subMonths;
-                      const normalized = monthly * sceneMonths;
+                      const normalized = monthly * displayMonths;
                       converted = convertCurrency(normalized, currency, displayCurrency, exchangeRates);
                     }
                     return (
@@ -302,7 +286,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                                 {formatCurrencyCompact(converted, displayCurrency)}
                               </span>
                               <span className="text-xs text-muted-foreground ml-0.5">
-                                {getBillingCycleShort(scene.billing_cycle, getCycleFormat())}
+                                {getBillingCycleShort(displayCycleName, getCycleFormat())}
                               </span>
                             </>
                           )}
@@ -361,39 +345,25 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
             <div className="grid gap-2">
               <Label>Logo</Label>
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden border">
-                  {editIcon ? (
-                    <img
-                      src={`data:${editIconMime || "image/png"};base64,${editIcon}`}
-                      alt="icon"
-                      className="h-10 w-10 object-contain"
-                    />
-                  ) : (
-                    <Layers className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-1" />
-                    上传
-                  </Button>
-                  {editIcon && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { setEditIcon(null); setEditIconMime(null); }}
-                    >
-                      清除
-                    </Button>
-                  )}
-                </div>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept={ACCEPTED_TYPES}
-                  className="hidden"
-                  onChange={handleFileChange}
+                <IconUpload
+                  currentIcon={editIcon}
+                  currentMimeType={editIconMime}
+                  onUpdated={(newIcon, newMime) => {
+                    if (newIcon && newMime) {
+                      setEditIcon(newIcon);
+                      setEditIconMime(newMime);
+                    }
+                  }}
                 />
+                {editIcon && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setEditIcon(null); setEditIconMime(null); }}
+                  >
+                    清除
+                  </Button>
+                )}
               </div>
             </div>
 

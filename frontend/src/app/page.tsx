@@ -18,7 +18,7 @@ import { SubscriptionCalendar } from "@/components/subscription-calendar";
 import { CategoryFilter } from "@/components/category-filter";
 import { SortOptions, type SortField } from "@/components/sort-options";
 import { CategoryPanel } from "@/components/category-panel";
-import { SettingsPage, getNormalizeCycle, getCycleFormat } from "@/components/settings-page";
+import { SettingsPage, getNormalizeCycle, getCycleFormat, getCurrencyDecimals } from "@/components/settings-page";
 import { NotificationsPage } from "@/components/notifications-page";
 import { fetchExchangeRates, convertCurrency } from "@/lib/currency";
 import { LoginPage } from "@/components/login-page";
@@ -152,12 +152,33 @@ export default function Home() {
     }, 0);
   }, [toCNY]);
 
+  // Filter + Sort (subscriptions only, for filtering)
+  const filteredSubs = useMemo(() => {
+    // On main page: show subs without scene_id, or subs with show_on_main=true
+    let list = subscriptions.filter(s => !s.scene_id || s.show_on_main);
+
+    // Calendar date filter
+    if (selectedDate) {
+      list = list.filter((s) => s.next_bill_date === selectedDate);
+    }
+
+    // Category filter
+    if (selectedCategoryIds.size > 0) {
+      list = list.filter((s) => {
+        if (selectedCategoryIds.has(-1) && !s.category_id) return true;
+        return s.category_id != null && selectedCategoryIds.has(s.category_id);
+      });
+    }
+
+    return list;
+  }, [subscriptions, selectedDate, selectedCategoryIds]);
+
   // Normalize total to a chosen cycle (from settings, or auto = smallest cycle)
   const { totalNormalized, baseCycleMonths, baseCycleLabel } = useMemo(() => {
     const normSetting = getNormalizeCycle();
     const cycleFmt = getCycleFormat();
 
-    const active = subscriptions.filter(
+    const active = filteredSubs.filter(
       (s) => !s.is_suspended && !s.is_one_time && !(s.end_date && new Date(s.end_date) < today)
     );
     if (active.length === 0) return { totalNormalized: 0, baseCycleMonths: 1, baseCycleLabel: "/月" };
@@ -196,10 +217,10 @@ export default function Home() {
     const total = active.reduce((sum, s) => sum + subMonthlyCNY(s) * targetMonths, 0);
 
     return { totalNormalized: total, baseCycleMonths: targetMonths, baseCycleLabel: label };
-  }, [subscriptions, today, subMonthlyCNY]);
+  }, [filteredSubs, today, subMonthlyCNY]);
 
   // 月支出：本月已到账单日期的订阅 + 本月付款的账单
-  const monthlySpending = useMemo(() => subscriptions
+  const monthlySpending = useMemo(() => filteredSubs
     .filter((s) => {
       if (s.is_suspended) return false;
       if (s.end_date && new Date(s.end_date) < today) return false;
@@ -227,7 +248,7 @@ export default function Home() {
       }
       return sum + toCNY(s.price, s.currency) / cycleToMonths(s.billing_cycle);
     }, 0),
-    [subscriptions, today, currentYear, currentMonth, toCNY]);
+    [filteredSubs, today, currentYear, currentMonth, toCNY]);
 
   // Helper to compute scene monthly CNY (using effective_records, filtering expired/suspended)
   const sceneMonthlyCNY = useCallback((scene: SceneWithSummary) => {
@@ -248,27 +269,6 @@ export default function Home() {
     }, 0);
   }, [rates]);
 
-  // Filter + Sort (subscriptions only, for filtering)
-  const filteredSubs = useMemo(() => {
-    // On main page: show subs without scene_id, or subs with show_on_main=true
-    let list = subscriptions.filter(s => !s.scene_id || s.show_on_main);
-
-    // Calendar date filter
-    if (selectedDate) {
-      list = list.filter((s) => s.next_bill_date === selectedDate);
-    }
-
-    // Category filter
-    if (selectedCategoryIds.size > 0) {
-      list = list.filter((s) => {
-        if (selectedCategoryIds.has(-1) && !s.category_id) return true;
-        return s.category_id != null && selectedCategoryIds.has(s.category_id);
-      });
-    }
-
-    return list;
-  }, [subscriptions, selectedDate, selectedCategoryIds]);
-
   // Unified sorted list: scenes + subscriptions together
   type CardItem = { type: "scene"; data: SceneWithSummary } | { type: "sub"; data: Subscription };
   const sortedCards = useMemo(() => {
@@ -280,9 +280,10 @@ export default function Home() {
       return !allOnMain;
     });
     
-    // Build unified list
+    // Build unified list — hide scenes when category or date filter is active
+    const showScenes = selectedCategoryIds.size === 0 && !selectedDate;
     const items: CardItem[] = [
-      ...visibleScenes.map(s => ({ type: "scene" as const, data: s })),
+      ...(showScenes ? visibleScenes.map(s => ({ type: "scene" as const, data: s })) : []),
       ...filteredSubs.map(s => ({ type: "sub" as const, data: s })),
     ];
 
@@ -297,19 +298,43 @@ export default function Home() {
       if (item.type === "scene") return item.data.nearest_next_bill || "9999-12-31";
       return item.data.next_bill_date || "9999-12-31";
     };
-    const getMonthly = (item: CardItem) => {
-      if (item.type === "scene") return sceneMonthlyCNY(item.data);
-      return subMonthlyCNY(item.data);
+    const normSetting = getNormalizeCycle();
+    const getSortPrice = (item: CardItem) => {
+      if (normSetting === "auto") {
+        // Raw per-payment price (no normalization)
+        if (item.type === "scene") return item.data.total_price;
+        const records = item.data.effective_records ?? [];
+        if (records.length > 0) {
+          return records.reduce((sum, r) => sum + toCNY(r.amount, r.currency), 0);
+        }
+        return toCNY(item.data.price, item.data.currency);
+      }
+      // Normalize to target cycle
+      const targetMonths = cycleToMonths(normSetting);
+      if (item.type === "scene") return sceneMonthlyCNY(item.data) * targetMonths;
+      return subMonthlyCNY(item.data) * targetMonths;
     };
     const getCategory = (item: CardItem) => {
       if (item.type === "scene") return 999998; // scenes sort before uncategorized
       return item.data.category_id ?? 999999;
     };
 
+    const isOneTime = (item: CardItem) => {
+      if (item.type === "scene") return false;
+      return item.data.is_one_time;
+    };
+
     items.sort((a, b) => {
       const ae = isExpired(a);
       const be = isExpired(b);
       if (ae !== be) return ae ? 1 : -1;
+
+      // When sorting by price with a fixed cycle, push one-time items to bottom (before expired)
+      if (sortBy === "price" && normSetting !== "auto") {
+        const ao = isOneTime(a);
+        const bo = isOneTime(b);
+        if (ao !== bo) return ao ? 1 : -1;
+      }
 
       let cmp = 0;
       switch (sortBy) {
@@ -322,18 +347,15 @@ export default function Home() {
         case "billing_date":
           cmp = getDate(a).localeCompare(getDate(b));
           break;
-        case "price_high":
-          cmp = getMonthly(b) - getMonthly(a);
-          break;
-        case "price_low":
-          cmp = getMonthly(a) - getMonthly(b);
+        case "price":
+          cmp = getSortPrice(b) - getSortPrice(a);
           break;
       }
       return sortReversed ? -cmp : cmp;
     });
 
     return items;
-  }, [scenes, filteredSubs, sortBy, sortReversed, today, subMonthlyCNY, sceneMonthlyCNY]);
+  }, [scenes, filteredSubs, sortBy, sortReversed, today, subMonthlyCNY, sceneMonthlyCNY, toCNY, selectedCategoryIds, selectedDate]);
 
   const filterContent = (
     <div className="p-4 space-y-4">
@@ -414,11 +436,21 @@ export default function Home() {
           {/* Header */}
           <div className="mb-4 md:mb-6 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold font-['MiSans']">所有订阅</h1>
+              <h1 className="text-xl md:text-2xl font-bold font-['MiSans']">
+                {selectedCategoryIds.size === 0
+                  ? "所有订阅"
+                  : selectedCategoryIds.size === 1
+                    ? (selectedCategoryIds.has(-1)
+                        ? "未分类"
+                        : categories.find(c => selectedCategoryIds.has(c.id))?.name ?? "所有订阅")
+                    : [...selectedCategoryIds].map(id =>
+                        id === -1 ? "未分类" : categories.find(c => c.id === id)?.name ?? ""
+                      ).filter(Boolean).join(" + ")}
+              </h1>
               <p className="text-xs md:text-sm text-muted-foreground mt-1 truncate">
-                共 {subscriptions.length} 项
-                {totalNormalized > 0 && ` · 均 ≈ ¥${totalNormalized.toFixed(0)}${baseCycleLabel}`}
-                {monthlySpending > 0 && ` · 本月 ¥${monthlySpending.toFixed(0)}`}
+                共 {filteredSubs.length} 项
+                {totalNormalized > 0 && ` · 均 ≈ ¥${totalNormalized.toFixed(getCurrencyDecimals())}${baseCycleLabel}`}
+                {monthlySpending > 0 && ` · 本月 ¥${monthlySpending.toFixed(getCurrencyDecimals())}`}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

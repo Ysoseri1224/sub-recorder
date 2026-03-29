@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { SceneWithSummary, SceneDetail, Subscription, Category } from "@/lib/types";
 import { BILLING_CYCLES, BILLING_CYCLE_LABELS, getBillingCycleShort, cycleToMonths } from "@/lib/types";
-import { getCycleFormat, getTargetCurrency } from "@/components/settings-page";
+import { getCycleFormat, getTargetCurrency, getNormalizeCycle } from "@/components/settings-page";
 import { formatCurrencyCompact, convertCurrency } from "@/lib/currency";
 import { SubscriptionCard } from "@/components/subscription-card";
 import { SubscriptionDialog } from "@/components/subscription-dialog";
@@ -138,9 +138,11 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
 
   // Compute total for the scene using effective_records + currency conversion
   const targetCurrency = getTargetCurrency();
+  const normSetting = getNormalizeCycle();
+  const displayCycleName = normSetting !== "auto" ? normSetting : (currentScene?.billing_cycle ?? "month_1");
+  const displayMonths = cycleToMonths(displayCycleName);
   const totalNormalized = useMemo(() => {
     if (!detail) return 0;
-    const sceneMonths = cycleToMonths(detail.billing_cycle);
     const todayStr = new Date().toISOString().slice(0, 10);
     return detail.subscriptions.reduce((sum, sub) => {
       // Skip expired and suspended
@@ -152,15 +154,15 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         return sum + records.reduce((s, r) => {
           const months = cycleToMonths(r.billing_cycle || sub.billing_cycle);
           const monthly = convertCurrency(r.amount, r.currency, targetCurrency, exchangeRates) / months;
-          return s + monthly * sceneMonths;
+          return s + monthly * displayMonths;
         }, 0);
       }
       // Fallback to base price
       const months = cycleToMonths(sub.billing_cycle);
       const monthly = convertCurrency(sub.price, sub.currency, targetCurrency, exchangeRates) / months;
-      return sum + monthly * sceneMonths;
+      return sum + monthly * displayMonths;
     }, 0);
-  }, [detail, exchangeRates, targetCurrency]);
+  }, [detail, exchangeRates, targetCurrency, displayMonths]);
 
   const handleCreateScene = async () => {
     if (!newSceneName.trim()) {
@@ -347,7 +349,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                 </h1>
                 <p className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate">
                   共 {detail?.subscriptions.length ?? 0} 项
-                  {totalNormalized > 0 && ` · 合计 ${formatCurrencyCompact(totalNormalized, targetCurrency)}${getBillingCycleShort(currentScene?.billing_cycle ?? "month_1", getCycleFormat())}`}
+                  {totalNormalized > 0 && ` · 合计 ${formatCurrencyCompact(totalNormalized, targetCurrency)}${getBillingCycleShort(displayCycleName, getCycleFormat())}`}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
