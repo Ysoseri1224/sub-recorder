@@ -20,6 +20,9 @@ data/
 *.swp
 *.swo
 
+# Docker
+!docker/entrypoint.sh
+
 # Misc
 *.md
 !README.md

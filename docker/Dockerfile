@@ -24,7 +24,7 @@ RUN npm run build
 # ==================== 最终镜像 ====================
 FROM alpine:3.20
 
-RUN apk add --no-cache libgcc && \
+RUN apk add --no-cache libgcc su-exec && \
     addgroup -g 1000 app && adduser -u 1000 -G app -s /bin/sh -D app
 
 WORKDIR /app
@@ -38,6 +38,10 @@ COPY --from=frontend-builder --chown=app:app /app/frontend/out /app/static
 # 创建数据目录
 RUN mkdir -p /app/data && chown app:app /app/data
 
+# Entrypoint（修复 volume 权限后降权运行）
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # 环境变量
 ENV DATABASE_PATH=/app/data/subscriptions.db
 ENV STATIC_DIR=/app/static
@@ -45,6 +49,5 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-USER app
-
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["/app/sub-recorder"]
