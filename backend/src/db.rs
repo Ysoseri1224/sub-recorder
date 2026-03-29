@@ -165,7 +165,14 @@ pub fn create_category(conn: &Connection, input: &CreateCategory) -> rusqlite::R
 
     if let Some(explicit_id) = input.id {
         conn.execute(
-            "INSERT OR REPLACE INTO categories (id, name, color, icon, icon_mime_type, fa_icon) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO categories (id, name, color, icon, icon_mime_type, fa_icon)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                color = excluded.color,
+                icon = excluded.icon,
+                icon_mime_type = excluded.icon_mime_type,
+                fa_icon = excluded.fa_icon",
             params![explicit_id, input.name, input.color, icon_blob, mime, input.fa_icon],
         )?;
         Ok(Category { id: explicit_id, name: input.name.clone(), color: input.color, icon: input.icon.clone(), icon_mime_type: input.icon_mime_type.clone(), fa_icon: input.fa_icon.clone() })
@@ -467,16 +474,31 @@ pub fn update_subscription(conn: &Connection, id: &str, input: &UpdateSubscripti
     let currency = input.currency.as_deref().unwrap_or(&existing.currency);
     let billing_cycle = input.billing_cycle.as_deref().unwrap_or(&existing.billing_cycle);
     let billing_date = input.billing_date.unwrap_or(existing.billing_date);
-    let end_date = if input.end_date.is_some() { input.end_date } else { existing.end_date };
+    let end_date = match input.end_date {
+        Some(value) => value,
+        None => existing.end_date,
+    };
     let is_one_time = input.is_one_time.unwrap_or(existing.is_one_time);
     let color = if input.color.is_some() { input.color } else { existing.color };
-    let category_id = if input.category_id.is_some() { input.category_id } else { existing.category_id };
+    let category_id = match input.category_id {
+        Some(value) => value,
+        None => existing.category_id,
+    };
     let should_be_tinted = input.should_be_tinted.unwrap_or(existing.should_be_tinted);
-    let notes = if input.notes.is_some() { input.notes.clone() } else { existing.notes };
-    let link = if input.link.is_some() { input.link.clone() } else { existing.link };
+    let notes = match &input.notes {
+        Some(value) => value.clone(),
+        None => existing.notes,
+    };
+    let link = match &input.link {
+        Some(value) => value.clone(),
+        None => existing.link,
+    };
     let is_reminder_enabled = input.is_reminder_enabled.unwrap_or(existing.is_reminder_enabled);
     let reminder_type = if input.reminder_type.is_some() { input.reminder_type.clone() } else { existing.reminder_type };
-    let scene_id = if input.scene_id.is_some() { input.scene_id.clone() } else { existing.scene_id };
+    let scene_id = match &input.scene_id {
+        Some(value) => value.clone(),
+        None => existing.scene_id,
+    };
     let show_on_main = input.show_on_main.unwrap_or(existing.show_on_main);
 
     // 重新计算 next_bill_date
@@ -1362,6 +1384,7 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
         return Err("无效的导出格式或版本号".to_string());
     }
 
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     let mut stats = Vec::new();
 
     // 1. 导入分类
@@ -1375,9 +1398,9 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
             let icon = cat.get("icon").and_then(|v| v.as_str()).map(|s| s.to_string());
             let icon_mime = cat.get("icon_mime_type").and_then(|v| v.as_str()).map(|s| s.to_string());
             let fa_icon = cat.get("fa_icon").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let _ = create_category(conn, &CreateCategory {
+            create_category(&tx, &CreateCategory {
                 id: Some(id), name, color, icon, icon_mime_type: icon_mime, fa_icon,
-            });
+            }).map_err(|e| format!("导入分类 {} 失败: {}", id, e))?;
             count += 1;
         }
         stats.push(format!("分类 {}", count));
@@ -1413,11 +1436,21 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
             });
             let mime = icon.as_ref().map(|_| icon_mime.as_deref().unwrap_or("image/png").to_string());
 
-            let _ = conn.execute(
-                "INSERT OR REPLACE INTO scenes (id, name, color, icon, icon_mime_type, billing_cycle, show_sub_logos, notes, link, created_at) \
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            tx.execute(
+                "INSERT INTO scenes (id, name, color, icon, icon_mime_type, billing_cycle, show_sub_logos, notes, link, created_at) \
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    color = excluded.color,
+                    icon = excluded.icon,
+                    icon_mime_type = excluded.icon_mime_type,
+                    billing_cycle = excluded.billing_cycle,
+                    show_sub_logos = excluded.show_sub_logos,
+                    notes = excluded.notes,
+                    link = excluded.link,
+                    created_at = excluded.created_at",
                 params![id, name, color, icon_blob, mime, billing_cycle, show_sub_logos as i32, notes, link, now],
-            );
+            ).map_err(|e| format!("导入场景 {} 失败: {}", id, e))?;
             count += 1;
         }
         stats.push(format!("场景 {}", count));
@@ -1465,12 +1498,37 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
                 base64::engine::general_purpose::STANDARD.decode(&cleaned).unwrap_or_default()
             });
 
-            let _ = conn.execute(
-                "INSERT OR REPLACE INTO subscriptions (id, name, price, currency, billing_cycle, billing_date, \
+            tx.execute(
+                "INSERT INTO subscriptions (id, name, price, currency, billing_cycle, billing_date, \
                  next_bill_date, end_date, is_one_time, is_suspended, suspended_at, suspended_until, \
                  color, icon, icon_mime_type, should_be_tinted, category_id, notes, link, \
                  is_reminder_enabled, reminder_type, scene_id, show_on_main, created_at, updated_at) \
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25)",
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25)
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    price = excluded.price,
+                    currency = excluded.currency,
+                    billing_cycle = excluded.billing_cycle,
+                    billing_date = excluded.billing_date,
+                    next_bill_date = excluded.next_bill_date,
+                    end_date = excluded.end_date,
+                    is_one_time = excluded.is_one_time,
+                    is_suspended = excluded.is_suspended,
+                    suspended_at = excluded.suspended_at,
+                    suspended_until = excluded.suspended_until,
+                    color = excluded.color,
+                    icon = excluded.icon,
+                    icon_mime_type = excluded.icon_mime_type,
+                    should_be_tinted = excluded.should_be_tinted,
+                    category_id = excluded.category_id,
+                    notes = excluded.notes,
+                    link = excluded.link,
+                    is_reminder_enabled = excluded.is_reminder_enabled,
+                    reminder_type = excluded.reminder_type,
+                    scene_id = excluded.scene_id,
+                    show_on_main = excluded.show_on_main,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at",
                 params![
                     id, name, price, currency, billing_cycle, billing_date,
                     next_bill_date, end_date,
@@ -1479,7 +1537,7 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
                     notes, link, is_reminder_enabled as i32, reminder_type, scene_id, show_on_main as i32,
                     ca, ua,
                 ],
-            );
+            ).map_err(|e| format!("导入订阅 {} 失败: {}", id, e))?;
             count += 1;
         }
         stats.push(format!("订阅 {}", count));
@@ -1489,6 +1547,8 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
     if let Some(records) = data.get("billing_records").and_then(|v| v.as_array()) {
         let mut count = 0;
         for r in records {
+            let record_id = r.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+            if record_id <= 0 { continue; }
             let sub_id = match r.get("subscription_id").and_then(|v| v.as_str()) {
                 Some(id) => id,
                 None => continue,
@@ -1506,15 +1566,28 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
             let exchange_rate = r.get("exchange_rate").and_then(|v| v.as_f64());
             let exchange_rate_date = r.get("exchange_rate_date").and_then(|v| v.as_str());
 
-            let _ = conn.execute(
-                "INSERT INTO billing_records (subscription_id, period_start, period_end, amount, currency, \
+            tx.execute(
+                "INSERT INTO billing_records (id, subscription_id, period_start, period_end, amount, currency, \
                  billing_cycle, notes, paid_at, converted_amount, target_currency, exchange_rate, exchange_rate_date) \
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)
+                 ON CONFLICT(id) DO UPDATE SET
+                    subscription_id = excluded.subscription_id,
+                    period_start = excluded.period_start,
+                    period_end = excluded.period_end,
+                    amount = excluded.amount,
+                    currency = excluded.currency,
+                    billing_cycle = excluded.billing_cycle,
+                    notes = excluded.notes,
+                    paid_at = excluded.paid_at,
+                    converted_amount = excluded.converted_amount,
+                    target_currency = excluded.target_currency,
+                    exchange_rate = excluded.exchange_rate,
+                    exchange_rate_date = excluded.exchange_rate_date",
                 params![
-                    sub_id, period_start, period_end, amount, currency,
+                    record_id, sub_id, period_start, period_end, amount, currency,
                     billing_cycle, notes, paid_at, converted_amount, target_currency, exchange_rate, exchange_rate_date,
                 ],
-            );
+            ).map_err(|e| format!("导入账单记录 {} 失败: {}", record_id, e))?;
             count += 1;
         }
         stats.push(format!("账单记录 {}", count));
@@ -1537,16 +1610,24 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
             let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
             let ca = if created_at.is_empty() { &now } else { created_at };
 
-            let _ = conn.execute(
-                "INSERT OR REPLACE INTO notification_channels (id, name, channel_type, enabled, config, created_at, updated_at) \
-                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            tx.execute(
+                "INSERT INTO notification_channels (id, name, channel_type, enabled, config, created_at, updated_at) \
+                 VALUES (?1,?2,?3,?4,?5,?6,?7)
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    channel_type = excluded.channel_type,
+                    enabled = excluded.enabled,
+                    config = excluded.config,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at",
                 params![id, name, channel_type, enabled as i32, config_str, ca, now],
-            );
+            ).map_err(|e| format!("导入通知渠道 {} 失败: {}", id, e))?;
             count += 1;
         }
         stats.push(format!("通知渠道 {}", count));
     }
 
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(format!("导入成功: {}", stats.join(", ")))
 }
 
@@ -1628,4 +1709,150 @@ pub fn sync_subscription_from_records(conn: &Connection, sub_id: &str) -> rusqli
         sub_id, period_end, next_bill);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;").unwrap();
+        init_db(&conn);
+        conn
+    }
+
+    #[test]
+    fn update_subscription_allows_clearing_nullable_fields() {
+        let conn = test_conn();
+        let scene = create_scene(&conn, &CreateScene {
+            name: "Scene A".to_string(),
+            color: None,
+            icon: None,
+            icon_mime_type: None,
+            billing_cycle: Some("month_1".to_string()),
+            show_sub_logos: Some(true),
+            notes: None,
+            link: None,
+        }).unwrap();
+
+        let sub = create_subscription(&conn, &CreateSubscription {
+            name: "Netflix".to_string(),
+            price: 10.0,
+            currency: "CNY".to_string(),
+            billing_cycle: "month_1".to_string(),
+            billing_date: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+            end_date: Some(NaiveDate::from_ymd_opt(2026, 12, 31).unwrap()),
+            is_one_time: false,
+            color: None,
+            icon: None,
+            icon_mime_type: None,
+            should_be_tinted: Some(false),
+            category_id: Some(1),
+            notes: Some("keep me?".to_string()),
+            link: Some("https://example.com".to_string()),
+            is_reminder_enabled: Some(true),
+            reminder_type: Some("one_day".to_string()),
+            scene_id: Some(scene.id.clone()),
+            show_on_main: Some(true),
+        }).unwrap();
+
+        let update: UpdateSubscription = serde_json::from_value(json!({
+            "end_date": null,
+            "category_id": null,
+            "notes": null,
+            "link": null,
+            "scene_id": null
+        })).unwrap();
+
+        let updated = update_subscription(&conn, &sub.id, &update).unwrap().unwrap();
+        assert_eq!(updated.end_date, None);
+        assert_eq!(updated.category_id, None);
+        assert_eq!(updated.notes, None);
+        assert_eq!(updated.link, None);
+        assert_eq!(updated.scene_id, None);
+    }
+
+    #[test]
+    fn native_import_keeps_existing_category_and_scene_links() {
+        let conn = test_conn();
+        let scene = create_scene(&conn, &CreateScene {
+            name: "Scene A".to_string(),
+            color: None,
+            icon: None,
+            icon_mime_type: None,
+            billing_cycle: Some("month_1".to_string()),
+            show_sub_logos: Some(true),
+            notes: None,
+            link: None,
+        }).unwrap();
+
+        let sub = create_subscription(&conn, &CreateSubscription {
+            name: "Sub A".to_string(),
+            price: 10.0,
+            currency: "CNY".to_string(),
+            billing_cycle: "month_1".to_string(),
+            billing_date: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+            end_date: None,
+            is_one_time: false,
+            color: None,
+            icon: None,
+            icon_mime_type: None,
+            should_be_tinted: Some(false),
+            category_id: Some(1),
+            notes: None,
+            link: None,
+            is_reminder_enabled: Some(true),
+            reminder_type: Some("one_day".to_string()),
+            scene_id: Some(scene.id.clone()),
+            show_on_main: Some(true),
+        }).unwrap();
+
+        import_native_data(&conn, &json!({
+            "version": 1,
+            "categories": [
+                { "id": 1, "name": "保险-更新后", "color": 123 }
+            ],
+            "scenes": [
+                {
+                    "id": scene.id,
+                    "name": "Scene A Updated",
+                    "billing_cycle": "month_1",
+                    "show_sub_logos": true
+                }
+            ]
+        })).unwrap();
+
+        let updated = get_subscription(&conn, &sub.id).unwrap().unwrap();
+        assert_eq!(updated.category_id, Some(1));
+        assert_eq!(updated.scene_id, Some(scene.id.clone()));
+        assert_eq!(get_category(&conn, 1).unwrap().unwrap().name, "保险-更新后");
+        assert_eq!(get_scene(&conn, &scene.id).unwrap().unwrap().name, "Scene A Updated");
+    }
+
+    #[test]
+    fn native_import_rolls_back_on_failure() {
+        let conn = test_conn();
+
+        let result = import_native_data(&conn, &json!({
+            "version": 1,
+            "categories": [
+                { "id": 999, "name": "Temp Category" }
+            ],
+            "billing_records": [
+                {
+                    "id": 1,
+                    "subscription_id": "missing-subscription",
+                    "period_start": "2026-01-01",
+                    "period_end": "2026-02-01",
+                    "amount": 10.0,
+                    "currency": "CNY"
+                }
+            ]
+        }));
+
+        assert!(result.is_err());
+        assert!(get_category(&conn, 999).unwrap().is_none());
+    }
 }

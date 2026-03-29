@@ -1,5 +1,13 @@
 use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+fn deserialize_nullable_field<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Some(Option::<T>::deserialize(deserializer)?))
+}
 
 // ========== 计费周期 ==========
 
@@ -170,17 +178,22 @@ pub struct UpdateSubscription {
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
     pub billing_date: Option<NaiveDate>,
-    pub end_date: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "deserialize_nullable_field")]
+    pub end_date: Option<Option<NaiveDate>>,
     pub is_one_time: Option<bool>,
     pub color: Option<i64>,
     pub icon: Option<String>,
     pub should_be_tinted: Option<bool>,
-    pub category_id: Option<i64>,
-    pub notes: Option<String>,
-    pub link: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_nullable_field")]
+    pub category_id: Option<Option<i64>>,
+    #[serde(default, deserialize_with = "deserialize_nullable_field")]
+    pub notes: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_nullable_field")]
+    pub link: Option<Option<String>>,
     pub is_reminder_enabled: Option<bool>,
     pub reminder_type: Option<String>,
-    pub scene_id: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_nullable_field")]
+    pub scene_id: Option<Option<String>>,
     pub show_on_main: Option<bool>,
 }
 
