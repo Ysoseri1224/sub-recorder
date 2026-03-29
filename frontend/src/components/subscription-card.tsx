@@ -82,23 +82,23 @@ export function SubscriptionCard({ subscription: sub, onClick, exchangeRates }: 
   const normSetting = getNormalizeCycle();
   const cycleFmt = getCycleFormat();
 
+  // Normalize display price/cycle if a fixed cycle is chosen (independent of currency conversion)
+  if (normSetting !== "auto" && !sub.is_one_time) {
+    const displayMonths = cycleToMonths(displayCycle);
+    const targetMonths = cycleToMonths(normSetting);
+    if (Math.abs(displayMonths - targetMonths) > 0.01) {
+      displayPrice = displayPrice / displayMonths * targetMonths;
+      displayCycle = normSetting;
+    }
+  }
+
   // Determine the estimate cycle and converted amount
   let convertedAmount: number | null = null;
   let estimateCycle: string = displayCycle; // cycle for the estimate display
 
   const needsConversion = convertEnabled && displayCurrency !== targetCurrency && exchangeRates;
   if (needsConversion && exchangeRates) {
-    if (normSetting !== "auto" && !sub.is_one_time) {
-      // Normalize to the chosen cycle
-      const displayMonths = cycleToMonths(displayCycle);
-      const targetMonths = cycleToMonths(normSetting);
-      const monthly = convertCurrency(displayPrice, displayCurrency, targetCurrency, exchangeRates, "CNY") / displayMonths;
-      convertedAmount = monthly * targetMonths;
-      estimateCycle = normSetting;
-    } else {
-      // Keep original cycle
-      convertedAmount = convertCurrency(displayPrice, displayCurrency, targetCurrency, exchangeRates, "CNY");
-    }
+    convertedAmount = convertCurrency(displayPrice, displayCurrency, targetCurrency, exchangeRates, "CNY");
   }
 
   const nextDateStr = sub.next_bill_date

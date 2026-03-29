@@ -373,7 +373,7 @@ export function SettingsPage() {
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="zh">中文 (¥99/月, ¥599/年)</SelectItem>
                 <SelectItem value="en">英文 (¥99/mo, ¥599/y)</SelectItem>
               </SelectContent>
