@@ -1,8 +1,8 @@
 # Sub Recorder
 
-[![Docker Image](https://img.shields.io/docker/v/shenghuo2/sub-recorder?label=Docker&sort=semver&logo=docker)](https://hub.docker.com/r/shenghuo2/sub-recorder)
-[![Image Size](https://img.shields.io/docker/image-size/shenghuo2/sub-recorder/latest?label=Image%20Size&logo=docker)](https://hub.docker.com/r/shenghuo2/sub-recorder)
-[![GitHub License](https://img.shields.io/github/license/shenghuo2/sub-recorder?label=License)](LICENSE)
+[![Docker Image](https://img.shields.io/docker/v/Ysoseri1224/sub-recorder?label=Docker&sort=semver&logo=docker)](https://hub.docker.com/r/Ysoseri1224/sub-recorder)
+[![Image Size](https://img.shields.io/docker/image-size/Ysoseri1224/sub-recorder/latest?label=Image%20Size&logo=docker)](https://hub.docker.com/r/Ysoseri1224/sub-recorder)
+[![GitHub License](https://img.shields.io/github/license/Ysoseri1224/sub-recorder?label=License)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-Actix--web-orange?logo=rust)](backend/)
 [![Next.js](https://img.shields.io/badge/Next.js%2015-React%2019-black?logo=next.js)](frontend/)
 
@@ -44,7 +44,7 @@
 
 ### Docker
 
-镜像名 `shenghuo2/sub-recorder:latest`
+镜像名 `Ysoseri1224/sub-recorder:latest`
 
 #### Docker Compose（推荐）
 
@@ -52,7 +52,7 @@
 # docker-compose.yml
 services:
   sub-recorder:
-    image: shenghuo2/sub-recorder:latest
+    image: Ysoseri1224/sub-recorder:latest
     container_name: sub-recorder
     restart: unless-stopped
     ports:
@@ -84,13 +84,13 @@ docker run -d \
   -p 3000:3000 \
   -v ./data:/app/data \
   -e DATABASE_PATH=/app/data/subscriptions.db \
-  shenghuo2/sub-recorder:latest
+  Ysoseri1224/sub-recorder:latest
 ```
 
 #### 从源码构建
 
 ```bash
-git clone https://github.com/shenghuo2/sub-recorder.git
+git clone https://github.com/Ysoseri1224/sub-recorder.git
 cd sub-recorder
 docker compose -f docker/docker-compose.yml up -d --build
 ```
@@ -138,7 +138,7 @@ sudo chown -R 1000:1000 ./data
 ### 国际化（i18n）
 
 - 新增语言切换功能，支持**中文 / English** 双语，切换后全局即时生效
-- 添加右上角语言切换按钮（`LanguageSwitcher` 组件），可在任意页面快速切换
+- 语言切换入口位于「设置」页面（`LanguageSwitcher` 组件）
 - 所有界面文案均通过 `i18n.ts` 翻译系统管理，`t(key, fallback)` 支持 fallback 回退，保证用户自建分类在缺少翻译时仍显示原名
 - 翻译覆盖范围：
   - 主页标题、订阅计数、均费、本月支出等统计副标题
@@ -178,3 +178,5 @@ sudo chown -R 1000:1000 ./data
 [AGPL-3.0](LICENSE)
 
 Copyright © 2025 [shenghuo2](https://github.com/shenghuo2) · [sub-recorder](https://github.com/shenghuo2/sub-recorder)
+
+Fork maintained by [Ysoseri1224](https://github.com/Ysoseri1224) · [sub-recorder](https://github.com/Ysoseri1224/sub-recorder)
