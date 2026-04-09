@@ -1039,6 +1039,17 @@ async fn do_test_onebot(config: &serde_json::Value) -> HttpResponse {
     }
 }
 
+// ========== 统计 ==========
+
+pub async fn get_stats(state: web::Data<AppState>) -> HttpResponse {
+    let conn = state.db.lock().unwrap();
+    match db::get_stats(&conn) {
+        Ok(stats) => HttpResponse::Ok().json(ApiResponse::ok(stats)),
+        Err(e) => HttpResponse::InternalServerError().json(ApiResponse::<()>::err(e.to_string())),
+    }
+}
+
+
 // Telegram 独立测试函数
 async fn do_test_telegram(config: &serde_json::Value) -> HttpResponse {
     let bot_token = config.get("bot_token").and_then(|v| v.as_str()).unwrap_or("");

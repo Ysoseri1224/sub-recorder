@@ -411,3 +411,32 @@ export async function testNotification(data: { channel_type: string; config: any
     body: JSON.stringify(data),
   });
 }
+
+// ========== 统计 ==========
+
+export interface MonthlySpend {
+  month: string;
+  amount: number;
+  currency: string;
+}
+
+export interface CategorySpend {
+  category_id: number | null;
+  category_name: string;
+  amount: number;
+  currency: string;
+  count: number;
+}
+
+export interface StatsData {
+  monthly: MonthlySpend[];
+  yearly: MonthlySpend[];
+  by_category: CategorySpend[];
+  total_active: number;
+  total_suspended: number;
+}
+
+export async function getStats(): Promise<StatsData> {
+  return request<StatsData>("/api/stats");
+}
+

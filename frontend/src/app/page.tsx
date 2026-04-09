@@ -18,12 +18,17 @@ import { SubscriptionCalendar } from "@/components/subscription-calendar";
 import { CategoryFilter } from "@/components/category-filter";
 import { SortOptions, type SortField } from "@/components/sort-options";
 import { CategoryPanel } from "@/components/category-panel";
-import { SettingsPage, getNormalizeCycle, getCycleFormat, getCurrencyDecimals } from "@/components/settings-page";
+import { SettingsPage, getNormalizeCycle, getCurrencyDecimals } from "@/components/settings-page";
+import { useTranslations } from "@/lib/i18n";
 import { NotificationsPage } from "@/components/notifications-page";
 import { fetchExchangeRates, convertCurrency } from "@/lib/currency";
 import { LoginPage } from "@/components/login-page";
+import dynamic from "next/dynamic";
+
+const StatsPage = dynamic(() => import("@/app/stats/page"), { ssr: false });
 
 export default function Home() {
+  const { t, locale } = useTranslations();
   // 鉴权状态
   const [authChecking, setAuthChecking] = useState(true);
   const [needLogin, setNeedLogin] = useState(false);
@@ -176,12 +181,12 @@ export default function Home() {
   // Normalize total to a chosen cycle (from settings, or auto = smallest cycle)
   const { totalNormalized, baseCycleMonths, baseCycleLabel } = useMemo(() => {
     const normSetting = getNormalizeCycle();
-    const cycleFmt = getCycleFormat();
+    const cycleFmt = locale === "zh" ? "zh" : "en";
 
     const active = filteredSubs.filter(
       (s) => !s.is_suspended && !s.is_one_time && !(s.end_date && new Date(s.end_date) < today)
     );
-    if (active.length === 0) return { totalNormalized: 0, baseCycleMonths: 1, baseCycleLabel: "/月" };
+    if (active.length === 0) return { totalNormalized: 0, baseCycleMonths: 1, baseCycleLabel: locale === "zh" ? "/月" : "/mo" };
 
     let targetMonths: number;
     let targetCycle: string;
@@ -217,7 +222,7 @@ export default function Home() {
     const total = active.reduce((sum, s) => sum + subMonthlyCNY(s) * targetMonths, 0);
 
     return { totalNormalized: total, baseCycleMonths: targetMonths, baseCycleLabel: label };
-  }, [filteredSubs, today, subMonthlyCNY]);
+  }, [filteredSubs, today, subMonthlyCNY, locale]);
 
   // 月支出：本月已到账单日期的订阅 + 本月付款的账单
   const monthlySpending = useMemo(() => filteredSubs
@@ -438,19 +443,20 @@ export default function Home() {
             <div className="min-w-0">
               <h1 className="text-xl md:text-2xl font-bold font-['MiSans']">
                 {selectedCategoryIds.size === 0
-                  ? "所有订阅"
+                  ? t("main.all_subs")
                   : selectedCategoryIds.size === 1
                     ? (selectedCategoryIds.has(-1)
-                        ? "未分类"
-                        : categories.find(c => selectedCategoryIds.has(c.id))?.name ?? "所有订阅")
+                        ? t("category.uncategorized")
+                        : (() => { const cat = categories.find(c => selectedCategoryIds.has(c.id)); return cat ? t(`category.${cat.name}`, cat.name) : t("main.all_subs"); })()
+                    )
                     : [...selectedCategoryIds].map(id =>
-                        id === -1 ? "未分类" : categories.find(c => c.id === id)?.name ?? ""
+                        id === -1 ? t("category.uncategorized") : (() => { const cat = categories.find(c => c.id === id); return cat ? t(`category.${cat.name}`, cat.name) : ""; })()
                       ).filter(Boolean).join(" + ")}
               </h1>
               <p className="text-xs md:text-sm text-muted-foreground mt-1 truncate">
-                共 {filteredSubs.length} 项
-                {totalNormalized > 0 && ` · 均 ≈ ¥${totalNormalized.toFixed(getCurrencyDecimals())}${baseCycleLabel}`}
-                {monthlySpending > 0 && ` · 本月 ¥${monthlySpending.toFixed(getCurrencyDecimals())}`}
+                {filteredSubs.length} {locale === "zh" ? "项" : "subs"}
+                {totalNormalized > 0 && ` · ${t("main.avg")} ¥${totalNormalized.toFixed(getCurrencyDecimals())}${baseCycleLabel}`}
+                {monthlySpending > 0 && ` · ${t("main.this_month")} ¥${monthlySpending.toFixed(getCurrencyDecimals())}`}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -479,17 +485,17 @@ export default function Home() {
           {/* List */}
           {loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground">
-              加载中...
+              {t("main.loading")}
             </div>
           ) : sortedCards.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               {subscriptions.length === 0 ? (
                 <>
-                  <p>还没有订阅</p>
-                  <p className="text-sm">点击右上角 + 添加</p>
+                  <p>{t("main.no_subs")}</p>
+                  <p className="text-sm">{t("main.no_subs_hint")}</p>
                 </>
               ) : (
-                <p>没有匹配的订阅</p>
+                <p>{t("main.no_match")}</p>
               )}
             </div>
           ) : (
@@ -567,6 +573,12 @@ export default function Home() {
       {navPage === "notifications" && (
         <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
           <NotificationsPage />
+        </div>
+      )}
+
+      {navPage === "stats" && (
+        <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
+          <StatsPage />
         </div>
       )}
 

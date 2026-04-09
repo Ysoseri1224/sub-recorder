@@ -20,13 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Subscription, Category, Scene } from "@/lib/types";
-import { BILLING_CYCLES, BILLING_CYCLE_LABELS, parseCustomDays } from "@/lib/types";
+import { BILLING_CYCLES, parseCustomDays } from "@/lib/types";
 import { SUPPORTED_CURRENCIES as CURRENCIES, getSymbol } from "@/lib/currency";
 import { PRESET_COLORS } from "@/lib/color";
 import { intToHex, hexToInt } from "@/lib/color";
 import * as api from "@/lib/api";
 import { parseFaIcon, getFaClass } from "@/lib/fa-icons";
 import { IconUpload } from "@/components/icon-upload";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   open: boolean;
@@ -48,6 +49,7 @@ export function SubscriptionDialog({
   defaultSceneId,
 }: Props) {
   const isEdit = !!subscription;
+  const { t } = useTranslations();
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -127,15 +129,15 @@ export function SubscriptionDialog({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("请输入名称");
+      toast.error(t("sub.error.name"));
       return;
     }
     if (!price || isNaN(Number(price))) {
-      toast.error("请输入有效价格");
+      toast.error(t("sub.error.price"));
       return;
     }
     if (!billingDate) {
-      toast.error("请选择账单日期");
+      toast.error(t("sub.error.date"));
       return;
     }
 
@@ -175,18 +177,18 @@ export function SubscriptionDialog({
         if (icon && iconMimeType && icon !== subscription?.icon) {
           await api.uploadIcon(subscription!.id, icon, iconMimeType);
         }
-        toast.success("已更新");
+        toast.success(t("sub.updated"));
       } else {
         const created = await api.createSubscription(data);
         // Upload icon for new subscription
         if (icon && iconMimeType && created?.id) {
           await api.uploadIcon(created.id, icon, iconMimeType);
         }
-        toast.success("已创建");
+        toast.success(t("sub.created"));
       }
       onSaved();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "保存失败");
+      toast.error(e instanceof Error ? e.message : t("sub.save_failed"));
     } finally {
       setSaving(false);
     }
@@ -196,7 +198,7 @@ export function SubscriptionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "编辑订阅" : "添加订阅"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("sub.dialog.edit") : t("sub.dialog.add")}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
@@ -216,12 +218,12 @@ export function SubscriptionDialog({
               />
             </div>
             <div className="flex-1 grid gap-2">
-              <Label htmlFor="name">名称</Label>
+              <Label htmlFor="name">{t("sub.name")}</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="如：Netflix"
+                placeholder={t("sub.name_placeholder")}
               />
             </div>
           </div>
@@ -229,7 +231,7 @@ export function SubscriptionDialog({
           {/* 价格 + 货币 */}
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2 grid gap-2">
-              <Label htmlFor="price">价格</Label>
+              <Label htmlFor="price">{t("sub.price")}</Label>
               <Input
                 id="price"
                 type="number"
@@ -240,7 +242,7 @@ export function SubscriptionDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label>货币</Label>
+              <Label>{t("sub.currency")}</Label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger>
                   <SelectValue />
@@ -258,7 +260,7 @@ export function SubscriptionDialog({
 
           {/* 计费周期 */}
           <div className="grid gap-2">
-            <Label>计费周期</Label>
+            <Label>{t("sub.billing_cycle")}</Label>
             <div className="flex gap-2">
               <Select value={billingCycle} onValueChange={setBillingCycle}>
                 <SelectTrigger className={billingCycle === "custom_days" ? "w-[120px]" : "w-full"}>
@@ -267,7 +269,7 @@ export function SubscriptionDialog({
                 <SelectContent>
                   {BILLING_CYCLES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {BILLING_CYCLE_LABELS[c]}
+                      {t(`cycle.${c}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -287,7 +289,7 @@ export function SubscriptionDialog({
           {/* 账单日期 */}
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-2">
-              <Label htmlFor="billingDate">开始日期</Label>
+              <Label htmlFor="billingDate">{t("sub.start_date")}</Label>
               <Input
                 id="billingDate"
                 type="date"
@@ -296,7 +298,7 @@ export function SubscriptionDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="endDate">结束日期</Label>
+              <Label htmlFor="endDate">{t("sub.end_date")}</Label>
               <Input
                 id="endDate"
                 type="date"
@@ -316,7 +318,7 @@ export function SubscriptionDialog({
                 onChange={(e) => setIsOneTime(e.target.checked)}
                 className="h-4 w-4 rounded"
               />
-              <Label htmlFor="isOneTime">一次性付费</Label>
+              <Label htmlFor="isOneTime">{t("sub.one_time_label")}</Label>
             </div>
             {sceneId && (
               <div className="flex items-center gap-2">
@@ -327,14 +329,14 @@ export function SubscriptionDialog({
                   onChange={(e) => setShowOnMain(e.target.checked)}
                   className="h-4 w-4 rounded"
                 />
-                <Label htmlFor="showOnMain">在主页单列显示</Label>
+                <Label htmlFor="showOnMain">{t("sub.show_on_main")}</Label>
               </div>
             )}
           </div>
 
           {/* 颜色 */}
           <div className="grid gap-2">
-            <Label>颜色</Label>
+            <Label>{t("sub.color")}</Label>
             <div className="flex flex-wrap gap-2 items-center">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -385,19 +387,19 @@ export function SubscriptionDialog({
               onChange={(e) => setShouldBeTinted(e.target.checked)}
               className="h-4 w-4 rounded"
             />
-            <Label htmlFor="shouldBeTinted">图标着色（自动黑/白对比）</Label>
+            <Label htmlFor="shouldBeTinted">{t("sub.icon_tint")}</Label>
           </div>
 
           {/* 分类 */}
           {categories.length > 0 && (
             <div className="grid gap-2">
-              <Label>分类</Label>
+              <Label>{t("sub.category")}</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="无分类" />
+                  <SelectValue placeholder={t("sub.no_category")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">无分类</SelectItem>
+                  <SelectItem value="__none__">{t("sub.no_category")}</SelectItem>
                   {categories.map((cat) => {
                     const parsed = cat.fa_icon ? parseFaIcon(cat.fa_icon) : null;
                     const iconCls = parsed ? getFaClass(parsed.name, parsed.style) : (cat.fa_icon ? `fa-solid ${cat.fa_icon}` : null);
@@ -418,13 +420,13 @@ export function SubscriptionDialog({
           {/* 场景 */}
           {scenes.length > 0 && (
             <div className="grid gap-2">
-              <Label>归属场景</Label>
+              <Label>{t("sub.scene")}</Label>
               <Select value={sceneId || "__none__"} onValueChange={(v) => setSceneId(v === "__none__" ? null : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="无场景" />
+                  <SelectValue placeholder={t("sub.no_scene")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">无场景（主页显示）</SelectItem>
+                  <SelectItem value="__none__">{t("sub.no_scene")}</SelectItem>
                   {scenes.map((scene) => (
                     <SelectItem key={scene.id} value={scene.id}>
                       {scene.name}
@@ -444,21 +446,21 @@ export function SubscriptionDialog({
               onChange={(e) => setIsReminderEnabled(e.target.checked)}
               className="h-4 w-4 rounded"
             />
-            <Label htmlFor="isReminderEnabled">到期提醒</Label>
+            <Label htmlFor="isReminderEnabled">{t("sub.reminder")}</Label>
           </div>
 
           {isReminderEnabled && (
             <div className="grid gap-2">
-              <Label>提醒时间</Label>
+              <Label>{t("sub.reminder_time")}</Label>
               <Select value={reminderType} onValueChange={setReminderType}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="same_day">当天</SelectItem>
-                  <SelectItem value="one_day">提前 1 天</SelectItem>
-                  <SelectItem value="three_days">提前 3 天</SelectItem>
-                  <SelectItem value="one_week">提前 1 周</SelectItem>
+                  <SelectItem value="same_day">{t("sub.reminder.same_day")}</SelectItem>
+                  <SelectItem value="one_day">{t("sub.reminder.one_day")}</SelectItem>
+                  <SelectItem value="three_days">{t("sub.reminder.three_days")}</SelectItem>
+                  <SelectItem value="one_week">{t("sub.reminder.one_week")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -466,33 +468,33 @@ export function SubscriptionDialog({
 
           {/* 备注 */}
           <div className="grid gap-2">
-            <Label htmlFor="notes">备注</Label>
+            <Label htmlFor="notes">{t("sub.notes")}</Label>
             <Input
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="可选"
+              placeholder={t("common.optional")}
             />
           </div>
 
           {/* 链接 */}
           <div className="grid gap-2">
-            <Label htmlFor="link">链接</Label>
+            <Label htmlFor="link">{t("sub.link")}</Label>
             <Input
               id="link"
               value={link}
               onChange={(e) => setLink(e.target.value)}
-              placeholder="可选"
+              placeholder={t("common.optional")}
             />
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "保存中..." : isEdit ? "更新" : "创建"}
+            {saving ? t("common.saving") : isEdit ? t("sub.update") : t("sub.create")}
           </Button>
         </DialogFooter>
       </DialogContent>

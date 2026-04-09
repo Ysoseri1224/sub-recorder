@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n";
 
 export type SortField = "billing_date" | "name" | "category" | "price";
 
@@ -12,15 +13,15 @@ interface Props {
   onChange: (sortBy: SortField, reversed: boolean) => void;
 }
 
-const SORT_OPTIONS: { id: SortField; label: string }[] = [
-  { id: "billing_date", label: "扣款日期" },
-  { id: "name", label: "名称" },
-  { id: "category", label: "类别" },
-  { id: "price", label: "价格" },
-];
-
 export function SortOptions({ sortBy, reversed, onChange }: Props) {
+  const { t } = useTranslations();
   const [collapsed, setCollapsed] = useState(false);
+  const SORT_OPTIONS: { id: SortField; label: string }[] = [
+    { id: "billing_date", label: t("sort.next_bill") },
+    { id: "name", label: t("sort.name_asc") },
+    { id: "category", label: t("sub.category") },
+    { id: "price", label: t("sort.price_asc") },
+  ];
 
   return (
     <div>
@@ -29,7 +30,7 @@ export function SortOptions({ sortBy, reversed, onChange }: Props) {
         className="flex items-center gap-2 w-full text-sm font-semibold py-2 hover:text-foreground transition-colors"
       >
         <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-        <span>排序方式</span>
+        <span>{t("sort.label")}</span>
         {collapsed ? (
           <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
         ) : (
@@ -66,7 +67,7 @@ export function SortOptions({ sortBy, reversed, onChange }: Props) {
                 onChange={(e) => onChange(sortBy, e.target.checked)}
                 className="h-3.5 w-3.5 rounded accent-primary"
               />
-              <span className="text-muted-foreground">反向</span>
+              <span className="text-muted-foreground">{t("sort.date_desc")}</span>
             </label>
           </div>
         </div>

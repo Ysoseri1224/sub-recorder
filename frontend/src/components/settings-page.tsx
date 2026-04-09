@@ -17,6 +17,8 @@ import {
 import { SUPPORTED_CURRENCIES, getSymbol, getCurrencyConfig, fetchExchangeRates, getCurrentExchangeRates, clearExchangeRatesCache } from "@/lib/currency";
 import { clearAuthToken, getAuthToken, getStoredUsername, updateUser, checkAuth, logout, exportData, importNativeData } from "@/lib/api";
 import { PasswordInput } from "@/components/ui/password-input";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslations } from "@/lib/i18n";
 
 const API_URL_KEY = "sub_recorder_api_url";
 
@@ -64,6 +66,7 @@ export function getNormalizeCycle(): string {
 }
 
 export function SettingsPage() {
+  const { t } = useTranslations();
   const [apiUrl, setApiUrl] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"ok" | "fail" | null>(null);
@@ -92,16 +95,16 @@ export function SettingsPage() {
   const loadExchangeRateInfo = () => {
     const rates = getCurrentExchangeRates();
     if (rates) {
-      const date = rates.updatedAt === "fallback" 
-        ? "内置汇率" 
-        : new Date(rates.updatedAt).toLocaleString("zh-CN");
+      const date = rates.updatedAt === "fallback"
+        ? t("settings.builtin_rate")
+        : new Date(rates.updatedAt).toLocaleString();
       const sampleRates = ["USD", "EUR", "JPY", "GBP"].map(cur => {
         const rate = rates.rates[cur];
         return rate ? `${cur}: ${rate.toFixed(4)}` : null;
       }).filter(Boolean).join(", ");
       setExchangeRateInfo(`${date} | ${sampleRates}`);
     } else {
-      setExchangeRateInfo("未加载");
+      setExchangeRateInfo(t("common.loading"));
     }
   };
 
@@ -133,16 +136,16 @@ export function SettingsPage() {
     localStorage.setItem(API_URL_KEY, trimmed);
     setApiUrl(trimmed);
     if (trimmed === "") {
-      toast.success("已切换到代理模式，刷新页面后生效");
+      toast.success(t("settings.save_ok"));
     } else {
-      toast.success("API 地址已保存，刷新页面后生效");
+      toast.success(t("settings.save_ok"));
     }
   };
 
   const handleReset = () => {
     localStorage.removeItem(API_URL_KEY);
     setApiUrl("");
-    toast.info("已切换到代理模式（默认）");
+    toast.info(t("settings.save_ok"));
   };
 
   const handleRefreshRates = async () => {
@@ -151,9 +154,9 @@ export function SettingsPage() {
       clearExchangeRatesCache();
       const rates = await fetchExchangeRates(targetCurrency);
       loadExchangeRateInfo();
-      toast.success(`汇率已更新 (基于 ${rates.base})`);
+      toast.success(t("billing.rate_updated"));
     } catch (e: unknown) {
-      toast.error("更新失败: " + (e instanceof Error ? e.message : "未知错误"));
+      toast.error(t("common.error") + ": " + (e instanceof Error ? e.message : ""));
     } finally {
       setRefreshingRates(false);
     }
@@ -174,20 +177,15 @@ export function SettingsPage() {
       });
       if (res.ok) {
         setTestResult("ok");
-        toast.success("连接成功");
+        toast.success(t("settings.test_ok"));
       } else {
         setTestResult("fail");
-        toast.error(`连接失败: HTTP ${res.status}`);
+        toast.error(`${t("settings.test_fail")}: HTTP ${res.status}`);
       }
     } catch (e: unknown) {
       setTestResult("fail");
-      const msg = e instanceof Error ? e.message : "网络错误";
-      // 提示 CORS 问题
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        toast.error("连接失败: 可能是 CORS 限制，建议使用代理模式（留空地址）");
-      } else {
-        toast.error("连接失败: " + msg);
-      }
+      const msg = e instanceof Error ? e.message : t("common.error");
+      toast.error(`${t("settings.test_fail")}: ${msg}`);
     } finally {
       setTesting(false);
     }
@@ -195,44 +193,44 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-lg mx-auto py-8 px-6">
-      <h1 className="text-2xl font-bold font-['MiSans'] mb-6">设置</h1>
+      <h1 className="text-2xl font-bold font-['MiSans'] mb-6">{t("settings.title")}</h1>
 
       <div className="space-y-6">
         {/* API URL */}
         <div className="space-y-3 p-4 rounded-xl border bg-card">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Server className="h-4 w-4 text-muted-foreground" />
-            后端 API 地址
+            {t("settings.api_url")}
           </div>
           <Label className="text-xs text-muted-foreground">
-            留空使用代理模式（Docker 部署推荐），或填写后端地址直连
+            {t("settings.api_url_desc")}
           </Label>
           <Input
             value={apiUrl}
             onChange={(e) => { setApiUrl(e.target.value); setTestResult(null); }}
-            placeholder="留空 = 代理模式，或填写 http://localhost:3456"
+            placeholder="http://localhost:3456"
             className="font-mono text-sm"
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave}>
               <Check className="h-3.5 w-3.5 mr-1" />
-              保存
+              {t("common.save")}
             </Button>
             <Button size="sm" variant="outline" onClick={handleTest} disabled={testing}>
-              {testing ? "测试中..." : "测试连接"}
+              {testing ? t("settings.testing") : t("settings.test")}
             </Button>
             <Button size="sm" variant="ghost" onClick={handleReset}>
               <RotateCcw className="h-3.5 w-3.5 mr-1" />
-              恢复默认
+              {t("common.default")}
             </Button>
           </div>
           {testResult && (
             <p className={`text-xs ${testResult === "ok" ? "text-green-600" : "text-destructive"}`}>
-              {testResult === "ok" ? "✓ 连接正常" : "✗ 连接失败"}
+              {testResult === "ok" ? `✓ ${t("settings.test_ok")}` : `✗ ${t("settings.test_fail")}`}
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            当前生效: <code className="bg-muted px-1 py-0.5 rounded">{getApiBaseUrl() || "代理模式"}</code>
+            {t("settings.api_url")}: <code className="bg-muted px-1 py-0.5 rounded">{getApiBaseUrl() || "proxy"}</code>
           </p>
         </div>
 
@@ -240,12 +238,12 @@ export function SettingsPage() {
         <div className="space-y-4 p-4 rounded-xl border bg-card">
           <div className="flex items-center gap-2 text-sm font-medium">
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            货币汇率换算
+            {t("settings.currency_conversion")}
           </div>
 
           {/* Enable/Disable */}
           <div className="flex items-center justify-between">
-            <Label className="text-sm">启用汇率换算显示</Label>
+            <Label className="text-sm">{t("settings.currency_convert_enable")}</Label>
             <Switch
               checked={convertEnabled}
               onCheckedChange={(checked) => {
@@ -257,7 +255,7 @@ export function SettingsPage() {
 
           {/* Target Currency */}
           <div className="space-y-2">
-            <Label className="text-sm">目标货币</Label>
+            <Label className="text-sm">{t("settings.target_currency")}</Label>
             <Select
               value={targetCurrency}
               onValueChange={(val) => {
@@ -274,7 +272,7 @@ export function SettingsPage() {
                   const cfg = getCurrencyConfig(code);
                   return (
                     <SelectItem key={code} value={code}>
-                      {getSymbol(code)} {code} - {cfg.name}
+                      {getSymbol(code)} {code} - {t(`currency.${code}`, cfg.name)}
                     </SelectItem>
                   );
                 })}
@@ -286,7 +284,7 @@ export function SettingsPage() {
           {convertEnabled && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">汇率信息</Label>
+                <Label className="text-sm">{t("billing.exchange_rate")}</Label>
                 <Button 
                   size="sm" 
                   variant="outline" 
@@ -294,18 +292,18 @@ export function SettingsPage() {
                   disabled={refreshingRates}
                 >
                   <RefreshCw className={`h-3.5 w-3.5 mr-1 ${refreshingRates ? "animate-spin" : ""}`} />
-                  {refreshingRates ? "更新中..." : "刷新汇率"}
+                  {refreshingRates ? t("common.updating") : t("billing.fetch_rate")}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground font-mono">
-                {exchangeRateInfo || "加载中..."}
+                {exchangeRateInfo || t("common.loading")}
               </p>
             </div>
           )}
 
           {/* Decimal Places */}
           <div className="space-y-2">
-            <Label className="text-sm">小数位数</Label>
+            <Label className="text-sm">{t("settings.decimal_places")}</Label>
             <Select
               value={String(decimals)}
               onValueChange={(val) => {
@@ -319,27 +317,27 @@ export function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">0 位小数</SelectItem>
-                <SelectItem value="1">1 位小数</SelectItem>
-                <SelectItem value="2">2 位小数</SelectItem>
-                <SelectItem value="3">3 位小数</SelectItem>
+                <SelectItem value="0">0</SelectItem>
+                <SelectItem value="1">1</SelectItem>
+                <SelectItem value="2">2</SelectItem>
+                <SelectItem value="3">3</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            开启后，非目标货币的金额后会显示 ≈ {getSymbol(targetCurrency)}xxx 的换算结果
+            {t("settings.currency_convert_enable")} ≈ {getSymbol(targetCurrency)}xxx
           </p>
         </div>
 
         {/* 显示设置 */}
         <div className="space-y-4 p-4 rounded-xl border bg-card">
-          <div className="text-sm font-medium">显示设置</div>
+          <div className="text-sm font-medium">{t("settings.normalize_cycle")}</div>
 
           {/* Normalize Cycle */}
           <div className="space-y-2">
-            <Label className="text-sm">统计均分周期</Label>
-            <Label className="text-xs text-muted-foreground">控制主页汇总和卡片估算的均分计算单位</Label>
+            <Label className="text-sm">{t("settings.normalize_cycle")}</Label>
+            <Label className="text-xs text-muted-foreground">{t("settings.normalize_cycle")}</Label>
             <Select
               value={normalizeCycle}
               onValueChange={(val) => {
@@ -351,52 +349,33 @@ export function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">自动（取最小周期）</SelectItem>
-                <SelectItem value="month_1">每月</SelectItem>
-                <SelectItem value="month_3">每季</SelectItem>
-                <SelectItem value="month_6">每半年</SelectItem>
-                <SelectItem value="year_1">每年</SelectItem>
+                <SelectItem value="auto">{t("settings.normalize_none")}</SelectItem>
+                <SelectItem value="month_1">{t("cycle.month_1")}</SelectItem>
+                <SelectItem value="month_3">{t("cycle.month_3")}</SelectItem>
+                <SelectItem value="month_6">{t("cycle.month_6")}</SelectItem>
+                <SelectItem value="year_1">{t("cycle.year_1")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Cycle Format */}
-          <div className="space-y-2">
-            <Label className="text-sm">周期单位格式</Label>
-            <Select
-              value={cycleFormat}
-              onValueChange={(val: "zh" | "en") => {
-                setCycleFormat(val);
-                localStorage.setItem(CYCLE_FORMAT_KEY, val);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="zh">中文 (¥99/月, ¥599/年)</SelectItem>
-                <SelectItem value="en">英文 (¥99/mo, ¥599/y)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* 账户设置 */}
         {getAuthToken() && (
           <div className="border-t pt-4 space-y-4">
-            <h3 className="font-medium text-sm">账户设置</h3>
+            <h3 className="font-medium text-sm">{t("settings.account")}</h3>
             {demoMode && (
-              <p className="text-xs text-muted-foreground">演示模式下不允许修改用户名和密码</p>
+              <p className="text-xs text-muted-foreground">{t("login.demo_mode")}</p>
             )}
             
             {/* 用户名 */}
             <div className="space-y-2">
-              <Label className="text-sm">用户名</Label>
+              <Label className="text-sm">{t("settings.username")}</Label>
               <div className="flex gap-2">
                 <Input
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="用户名"
+                  placeholder={t("settings.username")}
                   disabled={demoMode}
                 />
                 <Button
@@ -407,38 +386,38 @@ export function SettingsPage() {
                     try {
                       await updateUser({ username: newUsername.trim() });
                       setUsername(newUsername.trim());
-                      toast.success("用户名已更新");
+                      toast.success(t("settings.save_ok"));
                     } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "更新失败");
+                      toast.error(e instanceof Error ? e.message : t("settings.save_fail"));
                     } finally {
                       setSavingUser(false);
                     }
                   }}
                 >
-                  保存
+                  {t("common.save")}
                 </Button>
               </div>
             </div>
 
             {/* 修改密码 */}
             <div className="space-y-2">
-              <Label className="text-sm">修改密码</Label>
+              <Label className="text-sm">{t("login.password")}</Label>
               <PasswordInput
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                placeholder="当前密码"
+                placeholder={t("settings.old_password")}
                 disabled={demoMode}
               />
               <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="新密码"
+                placeholder={t("settings.new_password")}
                 disabled={demoMode}
               />
               <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="确认新密码"
+                placeholder={t("settings.new_password")}
                 disabled={demoMode}
               />
               <Button
@@ -447,7 +426,7 @@ export function SettingsPage() {
                 disabled={demoMode || savingUser || !oldPassword || !newPassword || newPassword !== confirmPassword}
                 onClick={async () => {
                   if (newPassword !== confirmPassword) {
-                    toast.error("两次输入的密码不一致");
+                    toast.error(t("settings.password_wrong"));
                     return;
                   }
                   setSavingUser(true);
@@ -456,15 +435,15 @@ export function SettingsPage() {
                     setOldPassword("");
                     setNewPassword("");
                     setConfirmPassword("");
-                    toast.success("密码已更新");
+                    toast.success(t("settings.save_ok"));
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : "更新失败");
+                    toast.error(e instanceof Error ? e.message : t("settings.save_fail"));
                   } finally {
                     setSavingUser(false);
                   }
                 }}
               >
-                更新密码
+                {t("settings.save")}
               </Button>
             </div>
 
@@ -474,18 +453,18 @@ export function SettingsPage() {
               className="w-full text-destructive hover:text-destructive"
               onClick={async () => {
                 await logout();
-                toast.success("已登出");
+                toast.success(t("settings.save_ok"));
                 window.location.reload();
               }}
             >
               <LogOut className="h-4 w-4 mr-2" />
-              登出
+              {t("scene.logout")}
             </Button>
           </div>
         )}
         {/* 数据导入导出 */}
         <div className="border-t pt-4 space-y-4">
-          <h3 className="font-medium text-sm">数据管理</h3>
+          <h3 className="font-medium text-sm">{t("settings.data_backup")}</h3>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -502,14 +481,14 @@ export function SettingsPage() {
                   a.click();
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
-                  toast.success("数据已导出");
+                  toast.success(t("settings.save_ok"));
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "导出失败");
+                  toast.error(e instanceof Error ? e.message : t("settings.save_fail"));
                 }
               }}
             >
               <Download className="h-4 w-4 mr-2" />
-              导出数据
+              {t("settings.export")}
             </Button>
             <Button
               variant="outline"
@@ -542,26 +521,32 @@ export function SettingsPage() {
               }}
             >
               <Upload className="h-4 w-4 mr-2" />
-              导入数据
+              {t("settings.import")}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            导出所有订阅、账单记录、分类、场景和通知渠道数据为 JSON 文件。导入时支持原生格式和旧版格式。
+            {t("settings.export_desc")}
           </p>
+        </div>
+
+        {/* 语言切换 */}
+        <div className="border-t pt-4 space-y-3">
+          <h3 className="font-medium text-sm">{t("settings.language")}</h3>
+          <LanguageSwitcher />
         </div>
 
         {/* 关于 */}
         <div className="border-t pt-4 space-y-2">
-          <h3 className="font-medium text-sm">关于</h3>
+          <h3 className="font-medium text-sm">{t("settings.about")}</h3>
           <div className="text-xs text-muted-foreground space-y-1">
             <p>
-              <span className="font-medium text-foreground">Sub Recorder</span> — 个人订阅管理工具
+              <span className="font-medium text-foreground">Sub Recorder</span> — {t("settings.about_desc")}
             </p>
             <p>
               © {new Date().getFullYear()}{" "}
-              <a href="https://github.com/shenghuo2" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">shenghuo2</a>
+              <a href="https://github.com/Ysoseri1224" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Ysoseri1224</a>
               {" · "}
-              <a href="https://github.com/shenghuo2/sub-recorder" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">GitHub</a>
+              <a href="https://github.com/Ysoseri1224/sub-recorder" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">GitHub</a>
               {" · "}
               AGPL-3.0
             </p>

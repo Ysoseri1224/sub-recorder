@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Upload, Link, Image as ImageIcon, X } from "lucide-react";
 import * as api from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   subscriptionId?: string;
@@ -39,6 +40,7 @@ function getMimeFromFile(file: File): string {
 }
 
 export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpdated, tintFilter }: Props) {
+  const { t } = useTranslations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mode, setMode] = useState<"file" | "url">("file");
   const [url, setUrl] = useState("");
@@ -55,7 +57,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
 
   const processFile = useCallback((file: File) => {
     if (file.size > 512 * 1024) {
-      toast.error("图片不能超过 512KB");
+      toast.error(t("icon.size_exceeded"));
       return;
     }
 
@@ -96,7 +98,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("请拖入图片文件");
+      toast.error(t("icon.image_only"));
       return;
     }
 
@@ -113,13 +115,13 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
         setUploading(true);
         try {
           await api.uploadIcon(subscriptionId, b64, previewMime);
-          toast.success("图标已更新");
+          toast.success(t("icon.updated"));
           setDialogOpen(false);
           setPreview(null);
           setPreviewMime(null);
           onUpdated(b64, previewMime);
         } catch (e: unknown) {
-          toast.error(e instanceof Error ? e.message : "上传失败");
+          toast.error(e instanceof Error ? e.message : t("icon.upload_fail"));
         } finally {
           setUploading(false);
         }
@@ -136,7 +138,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
     // Fallback to file input
     const file = fileRef.current?.files?.[0];
     if (!file) {
-      toast.error("请选择文件");
+      toast.error(t("icon.select_file"));
       return;
     }
 
@@ -150,7 +152,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
         
         if (subscriptionId) {
           await api.uploadIcon(subscriptionId, b64, mime);
-          toast.success("图标已更新");
+          toast.success(t("icon.updated"));
           onUpdated(b64, mime);
         } else {
           onUpdated(b64, mime);
@@ -161,7 +163,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
       };
       reader.readAsDataURL(file);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "上传失败");
+      toast.error(e instanceof Error ? e.message : t("icon.upload_fail"));
     } finally {
       setUploading(false);
     }
@@ -169,7 +171,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
 
   const handleUploadUrl = async () => {
     if (!url.trim()) {
-      toast.error("请输入图片 URL");
+      toast.error(t("icon.enter_url"));
       return;
     }
 
@@ -184,13 +186,13 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
       } else {
         // Edit mode: let backend fetch and save directly
         await api.uploadIconFromUrl(subscriptionId, url.trim());
-        toast.success("图标已更新");
+        toast.success(t("icon.updated"));
         setDialogOpen(false);
         setUrl("");
         onUpdated();
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "获取失败");
+      toast.error(e instanceof Error ? e.message : t("icon.fetch_fail"));
     } finally {
       setUploading(false);
     }
@@ -213,7 +215,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>设置图标</DialogTitle>
+            <DialogTitle>{t("icon.set")}</DialogTitle>
           </DialogHeader>
 
           {/* Tab 切换 */}
@@ -224,7 +226,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
               onClick={() => setMode("file")}
             >
               <Upload className="h-4 w-4 mr-1" />
-              本地上传
+              {t("common.upload_local")}
             </Button>
             <Button
               size="sm"
@@ -232,7 +234,7 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
               onClick={() => setMode("url")}
             >
               <Link className="h-4 w-4 mr-1" />
-              URL 获取
+              {t("common.fetch_url")}
             </Button>
           </div>
 
@@ -259,14 +261,14 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
                       onClick={() => { setPreview(null); setPreviewMime(null); }}
                     >
                       <X className="h-4 w-4 mr-1" />
-                      清除
+                      {t("common.clear")}
                     </Button>
                   </div>
                 ) : (
                   <>
                     <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      拖拽图片到此处，或点击下方选择
+                      {t("icon.drag_hint")}
                     </p>
                   </>
                 )}
@@ -281,34 +283,34 @@ export function IconUpload({ subscriptionId, currentIcon, currentMimeType, onUpd
                   className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground"
                 />
                 <p className="text-xs text-muted-foreground">
-                  支持 PNG、JPG、SVG、WebP，最大 512KB
+                  {t("icon.size_hint")}
                 </p>
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>{t("common.cancel")}</Button>
                 <Button onClick={handleUploadFile} disabled={uploading || (!preview && !fileRef.current?.files?.length)}>
-                  {uploading ? "上传中..." : "确定"}
+                  {uploading ? t("common.uploading") : t("common.confirm")}
                 </Button>
               </DialogFooter>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="grid gap-2">
-                <Label>图片 URL</Label>
+                <Label>URL</Label>
                 <Input
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://example.com/logo.png"
                 />
                 <p className="text-xs text-muted-foreground">
-                  支持 PNG、JPG、SVG、WebP 格式的直链
+                  {t("icon.url_hint")}
                 </p>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>{t("common.cancel")}</Button>
                 <Button onClick={handleUploadUrl} disabled={uploading}>
-                  {uploading ? "获取中..." : "获取"}
+                  {uploading ? t("common.fetching") : t("common.fetch_url")}
                 </Button>
               </DialogFooter>
             </div>

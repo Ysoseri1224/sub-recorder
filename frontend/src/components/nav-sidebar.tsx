@@ -1,27 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { LayoutDashboard, Settings, FolderOpen, Layers, Bell, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Settings, FolderOpen, Layers, Bell, ChevronLeft, ChevronRight, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppLogo } from "@/components/animated-logo";
+import { useTranslations } from "@/lib/i18n";
 
-export type NavPage = "subscriptions" | "scenes" | "categories" | "notifications" | "settings";
+export type NavPage = "subscriptions" | "scenes" | "categories" | "notifications" | "settings" | "stats";
 
 interface Props {
   current: NavPage;
   onChange: (page: NavPage) => void;
 }
 
-const NAV_ITEMS: { id: NavPage; icon: React.ElementType; label: string }[] = [
-  { id: "subscriptions", icon: LayoutDashboard, label: "订阅" },
-  { id: "scenes", icon: Layers, label: "场景" },
-  { id: "categories", icon: FolderOpen, label: "分类" },
-  { id: "notifications", icon: Bell, label: "通知" },
-  { id: "settings", icon: Settings, label: "设置" },
-];
-
 export function NavSidebar({ current, onChange }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslations();
+
+  const NAV_ITEMS: { id: NavPage; icon: React.ElementType; labelKey: string }[] = [
+    { id: "subscriptions", icon: LayoutDashboard, labelKey: "nav.subscriptions" },
+    { id: "scenes", icon: Layers, labelKey: "nav.scenes" },
+    { id: "stats", icon: BarChart2, labelKey: "nav.stats" },
+    { id: "categories", icon: FolderOpen, labelKey: "nav.categories" },
+    { id: "notifications", icon: Bell, labelKey: "nav.notifications" },
+    { id: "settings", icon: Settings, labelKey: "nav.settings" },
+  ];
 
   return (
     <>
@@ -37,7 +40,7 @@ export function NavSidebar({ current, onChange }: Props) {
           <button 
             onClick={() => setExpanded(!expanded)} 
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            title={expanded ? "收起侧边栏" : "展开侧边栏"}
+            title={expanded ? t("nav.collapse") : t("nav.expand")}
           >
             <AppLogo size={36} />
             {expanded && <span className="text-sm font-medium">Sub Recorder</span>}
@@ -59,7 +62,7 @@ export function NavSidebar({ current, onChange }: Props) {
             <button
               key={item.id}
               onClick={() => onChange(item.id)}
-              title={expanded ? undefined : item.label}
+              title={expanded ? undefined : t(item.labelKey)}
               className={cn(
                 "rounded-lg flex items-center transition-colors",
                 expanded ? "h-9 px-3 gap-3 justify-start" : "h-9 w-9 justify-center",
@@ -69,7 +72,7 @@ export function NavSidebar({ current, onChange }: Props) {
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {expanded && <span className="text-sm truncate">{item.label}</span>}
+              {expanded && <span className="text-sm truncate">{t(item.labelKey)}</span>}
             </button>
           );
         })}
@@ -79,7 +82,7 @@ export function NavSidebar({ current, onChange }: Props) {
           <button
             onClick={() => setExpanded(true)}
             className="mt-auto h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="展开侧边栏"
+            title={t("nav.expand")}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -103,7 +106,7 @@ export function NavSidebar({ current, onChange }: Props) {
               )}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] leading-tight">{item.label}</span>
+              <span className="text-[10px] leading-tight">{t(item.labelKey)}</span>
             </button>
           );
         })}

@@ -26,20 +26,22 @@ import {
   serializeFaIcon,
   searchIcons,
 } from "@/lib/fa-icons";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   value: string | null;
   onChange: (icon: string | null) => void;
 }
 
-const STYLE_OPTIONS: { id: FaStyle | "all"; label: string }[] = [
-  { id: "all", label: "全部" },
-  { id: "solid", label: "实心 Solid" },
-  { id: "regular", label: "线框 Regular" },
-  { id: "brands", label: "品牌 Brands" },
+const STYLE_OPTIONS: { id: FaStyle | "all"; labelKey: string }[] = [
+  { id: "all", labelKey: "fa.all" },
+  { id: "solid", labelKey: "fa.solid" },
+  { id: "regular", labelKey: "fa.regular" },
+  { id: "brands", labelKey: "fa.brands" },
 ];
 
 export function FaIconPicker({ value, onChange }: Props) {
+  const { t } = useTranslations();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState<FaStyle | "all">("all");
@@ -74,14 +76,14 @@ export function FaIconPicker({ value, onChange }: Props) {
           {parsed ? (
             <i className={`${getFaClass(parsed.name, parsed.style)} text-sm`} />
           ) : (
-            <span className="text-xs text-muted-foreground">选择图标</span>
+            <span className="text-xs text-muted-foreground">{t("fa.select")}</span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[420px] p-3" align="start">
         {/* Search */}
         <Input
-          placeholder="搜索图标名称、标签、关键词..."
+          placeholder={t("fa.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 text-sm mb-2"
@@ -93,12 +95,12 @@ export function FaIconPicker({ value, onChange }: Props) {
           {/* Style filter */}
           <Select value={style} onValueChange={(v) => setStyle(v as FaStyle | "all")}>
             <SelectTrigger className="h-7 text-xs flex-1">
-              <SelectValue placeholder="样式" />
+              <SelectValue placeholder={t("fa.style")} />
             </SelectTrigger>
             <SelectContent>
               {STYLE_OPTIONS.map((opt) => (
                 <SelectItem key={opt.id} value={opt.id} className="text-xs">
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -107,10 +109,10 @@ export function FaIconPicker({ value, onChange }: Props) {
           {/* Category filter */}
           <Select value={category || "__all__"} onValueChange={(v) => setCategory(v === "__all__" ? null : v)}>
             <SelectTrigger className="h-7 text-xs flex-[2]">
-              <SelectValue placeholder="分类" />
+              <SelectValue placeholder={t("fa.category")} />
             </SelectTrigger>
             <SelectContent className="max-h-64">
-              <SelectItem value="__all__" className="text-xs">全部分类</SelectItem>
+              <SelectItem value="__all__" className="text-xs">{t("fa.all_categories")}</SelectItem>
               {FA_CATEGORIES.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id} className="text-xs">
                   {cat.label} ({cat.count})
@@ -122,14 +124,14 @@ export function FaIconPicker({ value, onChange }: Props) {
           {/* Reset */}
           {(search || style !== "all" || category) && (
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={resetFilters}>
-              重置
+              {t("fa.reset")}
             </Button>
           )}
         </div>
 
         {/* Results count */}
         <div className="text-[10px] text-muted-foreground mb-1">
-          找到 {filtered.length} 个图标
+          {t("fa.found")} {filtered.length} {t("fa.icons")}
           {category && ` (${FA_CATEGORIES.find(c => c.id === category)?.label})`}
         </div>
 
@@ -142,7 +144,7 @@ export function FaIconPicker({ value, onChange }: Props) {
               "h-7 w-7 rounded flex items-center justify-center text-xs hover:bg-accent transition-colors",
               !value && "bg-primary/10 text-primary ring-1 ring-primary"
             )}
-            title="清除图标"
+            title={t("fa.clear_icon")}
           >
             ✕
           </button>
@@ -166,12 +168,12 @@ export function FaIconPicker({ value, onChange }: Props) {
 
         {filtered.length > 200 && (
           <p className="text-[10px] text-muted-foreground text-center mt-1">
-            显示前 200 个，请使用搜索或筛选缩小范围
+            {t("fa.too_many")}
           </p>
         )}
 
         {filtered.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-8">无匹配图标</p>
+          <p className="text-xs text-muted-foreground text-center py-8">{t("fa.no_match")}</p>
         )}
 
         {/* Selected preview */}
@@ -185,7 +187,7 @@ export function FaIconPicker({ value, onChange }: Props) {
         {/* Stats */}
         <div className="mt-2 pt-2 border-t text-[10px] text-muted-foreground/60 flex justify-between">
           <span>Font Awesome 6 Free</span>
-          <span>{FA_STATS.total} 图标 · {FA_STATS.categories} 分类</span>
+          <span>{FA_STATS.total} {t("fa.icons")} · {FA_STATS.categories} {t("fa.stats_categories")}</span>
         </div>
       </PopoverContent>
     </Popover>

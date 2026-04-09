@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Filter } from "lucide-react";
 import type { Category } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { parseFaIcon, getFaClass } from "@/lib/fa-icons";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   categories: Category[];
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function CategoryFilter({ categories, selectedIds, onChange }: Props) {
+  const { t } = useTranslations();
   const [collapsed, setCollapsed] = useState(false);
 
   const toggle = (id: number) => {
@@ -31,10 +33,10 @@ export function CategoryFilter({ categories, selectedIds, onChange }: Props) {
         className="flex items-center gap-2 w-full text-sm font-semibold py-2 hover:text-foreground transition-colors"
       >
         <Filter className="h-4 w-4 text-muted-foreground" />
-        <span>分类筛选</span>
+        <span>{t("filter.title")}</span>
         {!allSelected && (
           <span className="text-xs text-primary ml-auto mr-2">
-            {selectedIds.size} 项
+            {selectedIds.size} {t("filter.selected")}
           </span>
         )}
         {collapsed ? (
@@ -55,7 +57,7 @@ export function CategoryFilter({ categories, selectedIds, onChange }: Props) {
               className="h-3.5 w-3.5 rounded accent-primary"
             />
             <span className={cn(allSelected ? "text-foreground font-medium" : "text-muted-foreground")}>
-              全部
+              {t("filter.all")}
             </span>
           </label>
 
@@ -76,7 +78,7 @@ export function CategoryFilter({ categories, selectedIds, onChange }: Props) {
                 return <i className={`${cls} text-xs text-muted-foreground w-4 text-center`} />;
               })()}
               <span className={cn(selectedIds.has(cat.id) ? "text-foreground font-medium" : "text-muted-foreground")}>
-                {cat.name}
+                {t(`category.${cat.name}`, cat.name)}
               </span>
             </label>
           ))}
@@ -90,7 +92,7 @@ export function CategoryFilter({ categories, selectedIds, onChange }: Props) {
               className="h-3.5 w-3.5 rounded accent-primary"
             />
             <span className={cn(selectedIds.has(-1) ? "text-foreground font-medium" : "text-muted-foreground")}>
-              未分类
+              {t("filter.uncategorized")}
             </span>
           </label>
         </div>

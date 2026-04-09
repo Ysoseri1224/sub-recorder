@@ -8,6 +8,7 @@ import { formatCurrencyCompact, formatCurrencyWithDecimals, convertCurrency, fet
 import { Badge } from "@/components/ui/badge";
 import { Pause } from "lucide-react";
 import { getCurrencyConvertEnabled, getTargetCurrency, getCurrencyDecimals, getCycleFormat, getNormalizeCycle } from "@/components/settings-page";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   subscription: Subscription;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function SubscriptionCard({ subscription: sub, onClick, exchangeRates }: Props) {
+  const { t } = useTranslations();
   const bgColor = intToHex(sub.color);
   const textColor = getContrastColor(bgColor);
 
@@ -143,18 +145,18 @@ export function SubscriptionCard({ subscription: sub, onClick, exchangeRates }: 
           <p className="font-['MiSans'] font-bold text-lg truncate">{sub.name}</p>
           {isExpired && (
             <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-black/20 border-0 shrink-0" style={{ color: textColor }}>
-              已过期
+              {t("card.expired")}
             </Badge>
           )}
           {sub.is_suspended && !isExpired && (
             <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-white/20 border-0 shrink-0" style={{ color: textColor }}>
               <Pause className="h-3 w-3 mr-0.5" />
-              已暂停
+              {t("card.suspended")}
             </Badge>
           )}
           {isDueSoon && !isExpired && !sub.is_suspended && (
             <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0 animate-pulse">
-              即将到期
+              {t("card.due_soon")}
             </Badge>
           )}
         </div>
@@ -188,9 +190,9 @@ export function SubscriptionCard({ subscription: sub, onClick, exchangeRates }: 
         ) : (
           <p className="text-xs opacity-70">
             {nextDateStr
-              ? `下次付款 ${nextDateStr}`
+              ? `${t("card.next_payment")} ${nextDateStr}`
               : sub.is_one_time
-              ? "一次性"
+              ? t("card.one_time")
               : "—"}
           </p>
         )}

@@ -131,6 +131,34 @@ docker exec sub-recorder /app/backend --reset-password
 sudo chown -R 1000:1000 ./data
 ```
 
+## 修改日志
+
+本仓库基于 [shenghuo2/sub-recorder](https://github.com/shenghuo2/sub-recorder) Fork，在原项目基础上进行了以下改动：
+
+### 国际化（i18n）
+
+- 新增语言切换功能，支持**中文 / English** 双语，切换后全局即时生效
+- 添加右上角语言切换按钮（`LanguageSwitcher` 组件），可在任意页面快速切换
+- 所有界面文案均通过 `i18n.ts` 翻译系统管理，`t(key, fallback)` 支持 fallback 回退，保证用户自建分类在缺少翻译时仍显示原名
+- 翻译覆盖范围：
+  - 主页标题、订阅计数、均费、本月支出等统计副标题
+  - 账单周期选项（每天 / 每周 / 每月……）
+  - 预设分类名称（保险、云存储、流媒体、VPN/代理……共 30+ 项）
+  - 日历星期与月份标签
+  - 货币选择列表（27 种货币本地化名称）
+  - 场景管理、分类管理、设置页全部文案
+
+### Bug 修复
+
+- **修复后端 SQL 歧义列名错误**：`get_stats` 函数的 JOIN 查询中 `name` 列未加表别名，导致 `ambiguous column name: name` 运行时报错；通过引入 `SUB_COLUMNS_PREFIXED` 常量（所有列加 `s.` 前缀）修复
+
+### UI / 交互改进
+
+- **移除"账单周期格式"设置项**：原有独立的 Chinese/English 周期标签切换选项已整合进语言设置，随界面语言自动切换，减少冗余配置
+- **Statistics 分类图表翻译**：By Category 饼图与列表中的分类名现在随语言设置同步翻译
+- **场景空状态文案优化**：首次使用时的提示按钮文案从完整描述句改为简短操作词，避免溢出截断
+- **归属信息更新**：Settings 页和登录页底部版权信息更新为本仓库地址
+
 ## 开发
 
 本地开发、项目结构、技术栈、API 等详见 [DEVELOPMENT.md](DEVELOPMENT.md)。

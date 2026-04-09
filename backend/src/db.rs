@@ -1631,6 +1631,93 @@ pub fn import_native_data(conn: &Connection, data: &serde_json::Value) -> Result
     Ok(format!("导入成功: {}", stats.join(", ")))
 }
 
+// ========== 统计 ==========
+
+pub fn get_stats(conn: &Connection) -> rusqlite::Result<crate::models::StatsResponse> {
+    use std::collections::HashMap;
+
+    // 月度/年度：从 billing_records 统计已付账单
+    let mut monthly_map: HashMap<String, f64> = HashMap::new();
+    let mut yearly_map: HashMap<String, f64> = HashMap::new();
+
+    let mut stmt = conn.prepare(
+        "SELECT paid_at, amount FROM billing_records WHERE paid_at IS NOT NULL ORDER BY paid_at ASC"
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+    })?;
+    for r in rows.flatten() {
+        let (date_str, amount) = r;
+        if date_str.len() >= 7 {
+            let month_key = date_str[..7].to_string(); // "2025-01"
+            let year_key = date_str[..4].to_string();  // "2025"
+            *monthly_map.entry(month_key).or_insert(0.0) += amount;
+            *yearly_map.entry(year_key).or_insert(0.0) += amount;
+        }
+    }
+
+    let mut monthly: Vec<crate::models::MonthlySpend> = monthly_map.into_iter()
+        .map(|(month, amount)| crate::models::MonthlySpend { month, amount, currency: "CNY".to_string() })
+        .collect();
+    monthly.sort_by(|a, b| a.month.cmp(&b.month));
+
+    let mut yearly: Vec<crate::models::MonthlySpend> = yearly_map.into_iter()
+        .map(|(month, amount)| crate::models::MonthlySpend { month, amount, currency: "CNY".to_string() })
+        .collect();
+    yearly.sort_by(|a, b| a.month.cmp(&b.month));
+
+    // 各分类占比：基于所有活跃订阅的标准月费折算
+    const SUB_COLUMNS_PREFIXED: &str = "s.id, s.name, s.price, s.currency, s.billing_cycle, s.billing_date, \
+        s.next_bill_date, s.end_date, s.is_one_time, s.is_suspended, s.suspended_at, s.suspended_until, \
+        s.color, s.icon, s.icon_mime_type, s.should_be_tinted, s.category_id, s.notes, s.link, s.is_reminder_enabled, s.reminder_type, \
+        s.scene_id, s.show_on_main, s.created_at, s.updated_at";
+    let sql = format!("SELECT {}, c.name FROM subscriptions s LEFT JOIN categories c ON s.category_id = c.id", SUB_COLUMNS_PREFIXED);
+    let mut sub_stmt = conn.prepare(&sql)?;
+    struct SubRow { sub: crate::models::Subscription, cat_name: Option<String> }
+    let sub_rows: Vec<SubRow> = sub_stmt.query_map([], |row| {
+        let sub = row_to_subscription(row)?;
+        let cat_name: Option<String> = row.get(25)?;
+        Ok(SubRow { sub, cat_name })
+    })?.collect::<Result<Vec<_>, _>>()?;
+
+    let today = chrono::Local::now().date_naive();
+    let mut cat_map: HashMap<Option<i64>, (String, f64, usize)> = HashMap::new();
+    for sr in &sub_rows {
+        let s = &sr.sub;
+        if s.is_suspended { continue; }
+        if s.end_date.map(|d| d < today).unwrap_or(false) { continue; }
+        let cycle = BillingCycle::from_str(&s.billing_cycle).unwrap_or(BillingCycle::Month1);
+        let monthly_cost = s.price / bc_to_months(&cycle);
+        let entry = cat_map.entry(s.category_id).or_insert_with(|| {
+            let name = sr.cat_name.clone().unwrap_or_else(|| "Uncategorized".to_string());
+            (name, 0.0, 0)
+        });
+        entry.1 += monthly_cost;
+        entry.2 += 1;
+    }
+    let mut by_category: Vec<crate::models::CategorySpend> = cat_map.into_iter()
+        .map(|(cat_id, (cat_name, amount, count))| crate::models::CategorySpend {
+            category_id: cat_id,
+            category_name: cat_name,
+            amount: (amount * 100.0).round() / 100.0,
+            currency: "CNY".to_string(),
+            count,
+        })
+        .collect();
+    by_category.sort_by(|a, b| b.amount.partial_cmp(&a.amount).unwrap_or(std::cmp::Ordering::Equal));
+
+    let total_active = sub_rows.iter().filter(|sr| !sr.sub.is_suspended).count();
+    let total_suspended = sub_rows.iter().filter(|sr| sr.sub.is_suspended).count();
+
+    Ok(crate::models::StatsResponse {
+        monthly,
+        yearly,
+        by_category,
+        total_active,
+        total_suspended,
+    })
+}
+
 // ========== 辅助函数 ==========
 
 fn parse_date(s: &str) -> NaiveDate {

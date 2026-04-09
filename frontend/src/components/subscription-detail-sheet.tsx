@@ -32,7 +32,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { Subscription, SubscriptionDetail, BillingRecord } from "@/lib/types";
-import { BILLING_CYCLES, BILLING_CYCLE_LABELS, parseCustomDays, getBillingCycleLabel, getBillingCycleShort } from "@/lib/types";
+import { BILLING_CYCLES, parseCustomDays, getBillingCycleLabel, getBillingCycleShort } from "@/lib/types";
 import { getCycleFormat } from "@/components/settings-page";
 import {
   Select,
@@ -46,6 +46,7 @@ import { getTargetCurrency } from "@/components/settings-page";
 import { intToHex, getContrastColor } from "@/lib/color";
 import { IconUpload } from "@/components/icon-upload";
 import * as api from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   subscriptionId: string | null;
@@ -64,6 +65,7 @@ export function SubscriptionDetailSheet({
 }: Props) {
   const [detail, setDetail] = useState<SubscriptionDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslations();
 
   // 暂停/恢复 dialog
   const [suspendOpen, setSuspendOpen] = useState(false);
@@ -90,7 +92,7 @@ export function SubscriptionDetailSheet({
       const d = await api.getSubscription(subscriptionId);
       setDetail(d);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "加载失败");
+      toast.error(e instanceof Error ? e.message : t("detail.load_failed"));
     } finally {
       setLoading(false);
     }
@@ -106,14 +108,14 @@ export function SubscriptionDetailSheet({
 
   const handleDelete = async () => {
     if (!detail) return;
-    if (!confirm(`确定删除「${detail.name}」？所有账单记录也会一起删除。`)) return;
+    if (!confirm(t("detail.delete_confirm").replace("{name}", detail.name))) return;
     try {
       await api.deleteSubscription(detail.id);
-      toast.success("已删除");
+      toast.success(t("detail.deleted"));
       onClose();
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "删除失败");
+      toast.error(e instanceof Error ? e.message : t("detail.delete_failed"));
     }
   };
 
@@ -121,12 +123,12 @@ export function SubscriptionDetailSheet({
     if (!detail) return;
     try {
       await api.suspendSubscription(detail.id, suspendDate || undefined);
-      toast.success("已暂停");
+      toast.success(t("suspend.success"));
       setSuspendOpen(false);
       loadDetail();
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "暂停失败");
+      toast.error(e instanceof Error ? e.message : t("suspend.failed"));
     }
   };
 
@@ -134,19 +136,19 @@ export function SubscriptionDetailSheet({
     if (!detail) return;
     try {
       await api.resumeSubscription(detail.id, resumeDate || undefined);
-      toast.success("已恢复");
+      toast.success(t("resume.success"));
       setResumeOpen(false);
       loadDetail();
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "恢复失败");
+      toast.error(e instanceof Error ? e.message : t("resume.failed"));
     }
   };
 
   const handleAddBilling = async () => {
     if (!detail) return;
     if (!brStart || !brEnd) {
-      toast.error("请填写周期开始和结束日期");
+      toast.error(t("billing.fill_dates"));
       return;
     }
     try {
@@ -169,7 +171,7 @@ export function SubscriptionDetailSheet({
           notes: brNotes || null,
           paid_at: brPaidAt || null,
         });
-        toast.success("账单记录已更新");
+        toast.success(t("billing.updated"));
       } else {
         // Calculate exchange rate info for new billing record
         const recordAmount = brAmount ? Number(brAmount) : detail.price;
@@ -219,25 +221,25 @@ export function SubscriptionDetailSheet({
           exchange_rate: exchangeRate,
           exchange_rate_date: exchangeRateDate,
         });
-        toast.success("账单记录已添加");
+        toast.success(t("billing.added"));
       }
       setBillingOpen(false);
       loadDetail();
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "添加失败");
+      toast.error(e instanceof Error ? e.message : t("billing.add_failed"));
     }
   };
 
   const handleDeleteBilling = async (record: BillingRecord) => {
-    if (!confirm("确定删除此账单记录？")) return;
+    if (!confirm(t("billing.delete_confirm"))) return;
     try {
       await api.deleteBillingRecord(record.id);
-      toast.success("已删除");
+      toast.success(t("detail.deleted"));
       loadDetail();
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "删除失败");
+      toast.error(e instanceof Error ? e.message : t("billing.delete_failed"));
     }
   };
 
@@ -305,8 +307,8 @@ export function SubscriptionDetailSheet({
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0 pb-16 md:pb-0">
           {loading || !detail ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
-              <SheetHeader className="sr-only"><SheetTitle>加载中</SheetTitle></SheetHeader>
-              加载中...
+              <SheetHeader className="sr-only"><SheetTitle>{t("detail.loading")}</SheetTitle></SheetHeader>
+              {t("common.loading")}
             </div>
           ) : (
             <div className="flex flex-col">
@@ -329,7 +331,7 @@ export function SubscriptionDetailSheet({
                         {detail.name}
                       </SheetTitle>
                       <p className="text-sm opacity-80">
-                        {detail.is_one_time ? "一次性" : getBillingCycleLabel(detail.billing_cycle)}
+                        {detail.is_one_time ? t("sub.one_time") : getBillingCycleLabel(detail.billing_cycle)}
                       </p>
                     </div>
                   </div>
@@ -371,8 +373,8 @@ export function SubscriptionDetailSheet({
                 {detail.is_suspended && (
                   <Badge className="mt-2 bg-white/20 border-0" style={{ color: textColor }}>
                     <Pause className="h-3 w-3 mr-1" />
-                    已暂停
-                    {detail.suspended_until && ` · 有效至 ${detail.suspended_until}`}
+                    {t("card.suspended")}
+                    {detail.suspended_until && ` · ${t("detail.suspended_until")} ${detail.suspended_until}`}
                   </Badge>
                 )}
               </div>
@@ -385,7 +387,7 @@ export function SubscriptionDetailSheet({
                   onClick={() => onEdit(detail as unknown as Subscription)}
                 >
                   <Pencil className="h-4 w-4 mr-1" />
-                  编辑
+                  {t("common.edit")}
                 </Button>
                 {detail.is_suspended ? (
                   <Button
@@ -397,7 +399,7 @@ export function SubscriptionDetailSheet({
                     }}
                   >
                     <Play className="h-4 w-4 mr-1" />
-                    恢复
+                    {t("sub.resume")}
                   </Button>
                 ) : (
                   <Button
@@ -409,7 +411,7 @@ export function SubscriptionDetailSheet({
                     }}
                   >
                     <Pause className="h-4 w-4 mr-1" />
-                    暂停
+                    {t("sub.suspend")}
                   </Button>
                 )}
                 <Button
@@ -426,36 +428,36 @@ export function SubscriptionDetailSheet({
               <div className="p-4 space-y-3">
                 {isExpired ? (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">下次账单</span>
-                    <span className="text-sm font-medium text-destructive">已过期</span>
+                    <span className="text-sm text-muted-foreground">{t("detail.next_bill")}</span>
+                    <span className="text-sm font-medium text-destructive">{t("detail.expired")}</span>
                   </div>
                 ) : (
-                  <InfoRow label="下次账单" value={
+                  <InfoRow label={t("detail.next_bill")} value={
                     detail.next_bill_date
-                      ? new Date(detail.next_bill_date).toLocaleDateString("zh-CN")
-                      : detail.is_suspended ? "已暂停" : "—"
+                      ? new Date(detail.next_bill_date).toLocaleDateString()
+                      : detail.is_suspended ? t("card.suspended") : "—"
                   } />
                 )}
-                <InfoRow label="开始日期" value={new Date(detail.billing_date).toLocaleDateString("zh-CN")} />
+                <InfoRow label={t("detail.start_date")} value={new Date(detail.billing_date).toLocaleDateString()} />
                 {detail.end_date && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">结束日期</span>
+                    <span className="text-sm text-muted-foreground">{t("detail.end_date")}</span>
                     <span className={`text-sm font-medium ${isExpired ? "text-destructive line-through" : ""}`}>
-                      {new Date(detail.end_date).toLocaleDateString("zh-CN")}
+                      {new Date(detail.end_date).toLocaleDateString()}
                     </span>
                   </div>
                 )}
-                {detail.notes && <InfoRow label="备注" value={detail.notes} />}
+                {detail.notes && <InfoRow label={t("detail.notes")} value={detail.notes} />}
                 {detail.link && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">链接</span>
+                    <span className="text-sm text-muted-foreground">{t("detail.link")}</span>
                     <a
                       href={detail.link}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-primary flex items-center gap-1 hover:underline"
                     >
-                      打开 <ExternalLink className="h-3 w-3" />
+                      {t("common.open")} <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
                 )}
@@ -468,17 +470,17 @@ export function SubscriptionDetailSheet({
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold flex items-center gap-1.5">
                     <Receipt className="h-4 w-4" />
-                    账单记录
+                    {t("billing.records")}
                   </h3>
                   <Button size="sm" variant="outline" onClick={openAddBilling}>
                     <Plus className="h-4 w-4 mr-1" />
-                    添加
+                    {t("billing.add")}
                   </Button>
                 </div>
 
                 {detail.billing_records.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">
-                    暂无账单记录，默认使用订阅价格
+                    {t("billing.no_records")}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -496,7 +498,7 @@ export function SubscriptionDetailSheet({
                             </span>
                             {!detail.is_one_time && (
                               <span className="text-xs text-muted-foreground">
-                                {record.billing_cycle ? getBillingCycleLabel(record.billing_cycle) : "默认周期"}
+                                {record.billing_cycle ? getBillingCycleLabel(record.billing_cycle) : t("billing.default_cycle")}
                               </span>
                             )}
                             {record.notes && (
@@ -515,7 +517,7 @@ export function SubscriptionDetailSheet({
                                 <span>≈ {formatCurrencyCompact(record.converted_amount, record.target_currency)}</span>
                                 {record.exchange_rate && (
                                   <span className="opacity-70">
-                                    (汇率 {record.exchange_rate.toFixed(4)}
+                                    ({t("billing.rate")} {record.exchange_rate.toFixed(4)}
                                     {record.exchange_rate_date && ` @ ${record.exchange_rate_date}`})
                                   </span>
                                 )}
@@ -556,13 +558,13 @@ export function SubscriptionDetailSheet({
       <Dialog open={suspendOpen} onOpenChange={setSuspendOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>暂停订阅</DialogTitle>
+            <DialogTitle>{t("suspend.title")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            暂停后，已有的账单记录保留不变，从指定日期起不再计算新的账单周期。
+            {t("suspend.desc")}
           </p>
           <div className="grid gap-2">
-            <Label>暂停生效日期</Label>
+            <Label>{t("suspend.date")}</Label>
             <Input
               type="date"
               value={suspendDate}
@@ -571,9 +573,9 @@ export function SubscriptionDetailSheet({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSuspendOpen(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
-            <Button onClick={handleSuspend}>确认暂停</Button>
+            <Button onClick={handleSuspend}>{t("suspend.confirm")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -582,13 +584,13 @@ export function SubscriptionDetailSheet({
       <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>恢复订阅</DialogTitle>
+            <DialogTitle>{t("resume.title")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            恢复后，将从指定日期开始重新计算账单周期。
+            {t("resume.desc")}
           </p>
           <div className="grid gap-2">
-            <Label>恢复起始日期</Label>
+            <Label>{t("resume.date")}</Label>
             <Input
               type="date"
               value={resumeDate}
@@ -597,9 +599,9 @@ export function SubscriptionDetailSheet({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setResumeOpen(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
-            <Button onClick={handleResume}>确认恢复</Button>
+            <Button onClick={handleResume}>{t("resume.confirm")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -608,12 +610,12 @@ export function SubscriptionDetailSheet({
       <Dialog open={billingOpen} onOpenChange={setBillingOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingRecord ? "编辑账单记录" : "添加账单记录"}</DialogTitle>
+            <DialogTitle>{editingRecord ? t("billing.edit_record") : t("billing.add_record")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-2">
-                <Label>周期开始</Label>
+                <Label>{t("billing.period_start")}</Label>
                 <Input
                   type="date"
                   value={brStart}
@@ -621,7 +623,7 @@ export function SubscriptionDetailSheet({
                 />
               </div>
               <div className="grid gap-2">
-                <Label>周期结束</Label>
+                <Label>{t("billing.period_end")}</Label>
                 <Input
                   type="date"
                   value={brEnd}
@@ -631,7 +633,7 @@ export function SubscriptionDetailSheet({
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2 grid gap-2">
-                <Label>金额（留空用默认价格）</Label>
+                <Label>{t("billing.amount_hint")}</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -641,7 +643,7 @@ export function SubscriptionDetailSheet({
                 />
               </div>
               <div className="grid gap-2">
-                <Label>货币</Label>
+                <Label>{t("sub.currency")}</Label>
                 <Input
                   value={brCurrency}
                   onChange={(e) => setBrCurrency(e.target.value)}
@@ -650,17 +652,17 @@ export function SubscriptionDetailSheet({
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>计费周期（留空用默认周期）</Label>
+              <Label>{t("billing.cycle_hint")}</Label>
               <div className="flex gap-2">
                 <Select value={brCycle} onValueChange={setBrCycle}>
                   <SelectTrigger className={brCycle === "custom_days" ? "w-[120px]" : "w-full"}>
-                    <SelectValue placeholder={detail ? getBillingCycleLabel(detail.billing_cycle) : "默认"} />
+                    <SelectValue placeholder={detail ? getBillingCycleLabel(detail.billing_cycle) : t("common.default")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__default__">默认</SelectItem>
+                    <SelectItem value="__default__">{t("common.default")}</SelectItem>
                     {BILLING_CYCLES.map((c) => (
                       <SelectItem key={c} value={c}>
-                        {BILLING_CYCLE_LABELS[c]}
+                        {t(`cycle.${c}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -677,7 +679,7 @@ export function SubscriptionDetailSheet({
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>付款日期</Label>
+              <Label>{t("billing.paid_at")}</Label>
               <Input
                 type="date"
                 value={brPaidAt}
@@ -685,11 +687,11 @@ export function SubscriptionDetailSheet({
               />
             </div>
             <div className="grid gap-2">
-              <Label>备注</Label>
+              <Label>{t("sub.notes")}</Label>
               <Input
                 value={brNotes}
                 onChange={(e) => setBrNotes(e.target.value)}
-                placeholder="如：活动优惠"
+                placeholder={t("billing.notes_hint")}
               />
             </div>
             
@@ -697,7 +699,7 @@ export function SubscriptionDetailSheet({
             {editingRecord && (
               <div className="grid gap-2 p-3 rounded-lg border bg-muted/50">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm">汇率信息</Label>
+                  <Label className="text-sm">{t("billing.exchange_rate")}</Label>
                   <Button
                     size="sm"
                     variant="outline"
@@ -707,12 +709,12 @@ export function SubscriptionDetailSheet({
                       const targetCurrency = getTargetCurrency();
                       
                       if (recordCurrency === targetCurrency) {
-                        toast.info("货币相同，无需换算");
+                        toast.info(t("billing.same_currency"));
                         return;
                       }
                       
                       if (Object.keys(exchangeRates).length === 0) {
-                        toast.error("汇率数据未加载");
+                        toast.error(t("billing.rate_not_loaded"));
                         return;
                       }
                       
@@ -727,27 +729,27 @@ export function SubscriptionDetailSheet({
                           exchange_rate: exchangeRate,
                           exchange_rate_date: exchangeRateDate,
                         });
-                        toast.success("汇率已更新");
+                        toast.success(t("billing.rate_updated"));
                         loadDetail();
                         onRefresh();
                         setBillingOpen(false);
                       } catch (e: unknown) {
-                        toast.error(e instanceof Error ? e.message : "更新失败");
+                        toast.error(e instanceof Error ? e.message : t("common.error"));
                       }
                     }}
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    获取汇率
+                    {t("billing.fetch_rate")}
                   </Button>
                 </div>
                 {editingRecord.converted_amount && editingRecord.target_currency && (
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <div>换算金额: {formatCurrencyCompact(editingRecord.converted_amount, editingRecord.target_currency)}</div>
+                    <div>{t("billing.converted")}: {formatCurrencyCompact(editingRecord.converted_amount, editingRecord.target_currency)}</div>
                     {editingRecord.exchange_rate && (
-                      <div>汇率: {editingRecord.exchange_rate.toFixed(4)}</div>
+                      <div>{t("billing.rate")}: {editingRecord.exchange_rate.toFixed(4)}</div>
                     )}
                     {editingRecord.exchange_rate_date && (
-                      <div>记录时间: {editingRecord.exchange_rate_date}</div>
+                      <div>{t("billing.rate_date")}: {editingRecord.exchange_rate_date}</div>
                     )}
                   </div>
                 )}
@@ -756,9 +758,9 @@ export function SubscriptionDetailSheet({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBillingOpen(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
-            <Button onClick={handleAddBilling}>{editingRecord ? "保存" : "添加"}</Button>
+            <Button onClick={handleAddBilling}>{editingRecord ? t("common.save") : t("billing.add")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -468,6 +468,33 @@ pub struct SubscriptionDetail {
     pub effective_records: Vec<EffectiveRecord>,
 }
 
+// ========== 统计 ==========
+
+#[derive(Debug, Serialize)]
+pub struct MonthlySpend {
+    pub month: String,       // "2025-01"
+    pub amount: f64,
+    pub currency: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CategorySpend {
+    pub category_id: Option<i64>,
+    pub category_name: String,
+    pub amount: f64,
+    pub currency: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StatsResponse {
+    pub monthly: Vec<MonthlySpend>,
+    pub yearly: Vec<MonthlySpend>,   // 复用结构，month 字段存 "2025"
+    pub by_category: Vec<CategorySpend>,
+    pub total_active: usize,
+    pub total_suspended: usize,
+}
+
 // ========== 通知渠道 ==========
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

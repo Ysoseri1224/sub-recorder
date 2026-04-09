@@ -125,6 +125,8 @@ async fn main() -> std::io::Result<()> {
             .route("/api/auth/check", web::get().to(handlers::check_auth))
             .route("/api/auth/user", web::get().to(handlers::get_user_info))
             .route("/api/auth/user", web::put().to(handlers::update_user))
+            // 统计
+            .route("/api/stats", web::get().to(handlers::get_stats))
             // 图片代理
             .route("/api/fetch-image", web::post().to(handlers::fetch_image))
             // 通知渠道

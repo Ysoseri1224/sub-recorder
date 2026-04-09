@@ -27,6 +27,7 @@ import { PRESET_COLORS, intToHex, hexToInt, getContrastColor } from "@/lib/color
 import { getCycleFormat, getTargetCurrency, getNormalizeCycle } from "@/components/settings-page";
 import { formatCurrencyCompact, convertCurrency } from "@/lib/currency";
 import * as api from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   scene: SceneWithSummary | null;
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchangeRates = {} }: Props) {
+  const { t } = useTranslations();
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
   const [editColor, setEditColor] = useState("#6366f1");
@@ -70,11 +72,11 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
         data.icon_mime_type = editIconMime || "image/png";
       }
       await api.updateScene(scene.id, data);
-      toast.success("场景已更新");
+      toast.success(t("scene.updated"));
       setEditOpen(false);
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "保存失败");
+      toast.error(e instanceof Error ? e.message : t("scene.save_failed"));
     } finally {
       setSaving(false);
     }
@@ -82,14 +84,14 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
 
   const handleDelete = async () => {
     if (!scene) return;
-    if (!confirm("删除此场景？场景内的订阅将移回主页。")) return;
+    if (!confirm(t("scene.delete_scene"))) return;
     try {
       await api.deleteScene(scene.id);
-      toast.success("场景已删除");
+      toast.success(t("scene.deleted"));
       onClose();
       onRefresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "删除失败");
+      toast.error(e instanceof Error ? e.message : t("scene.delete_failed"));
     }
   };
 
@@ -158,7 +160,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                       {scene.name}
                     </SheetTitle>
                     <p className="text-sm opacity-80">
-                      {scene.sub_count}个子项
+                      {scene.sub_count}{t("scene.items")}
                     </p>
                   </div>
                 </div>
@@ -178,11 +180,11 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
             <div className="flex gap-2 p-4 border-b">
               <Button size="sm" variant="outline" onClick={openEdit}>
                 <Pencil className="h-4 w-4 mr-1" />
-                编辑
+                {t("common.edit")}
               </Button>
               <Button size="sm" variant="outline" onClick={onNavigate}>
                 <Layers className="h-4 w-4 mr-1" />
-                进入场景
+                {t("scene.enter")}
               </Button>
               <Button
                 size="sm"
@@ -197,19 +199,19 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
             {/* Info */}
             <div className="p-4 space-y-3">
               {nextDateStr && (
-                <InfoRow label="最近付款" value={nextDateStr} />
+                <InfoRow label={t("scene.nearest_bill")} value={nextDateStr} />
               )}
-              {scene.notes && <InfoRow label="备注" value={scene.notes} />}
+              {scene.notes && <InfoRow label={t("sub.notes")} value={scene.notes} />}
               {scene.link && (
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">链接</span>
+                  <span className="text-sm text-muted-foreground">{t("sub.link")}</span>
                   <a
                     href={scene.link}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-primary flex items-center gap-1 hover:underline"
                   >
-                    打开 <ExternalLink className="h-3 w-3" />
+                    {t("scene.open_link")} <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
               )}
@@ -221,12 +223,12 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
             <div className="p-4">
               <h3 className="font-semibold flex items-center gap-1.5 mb-3">
                 <Layers className="h-4 w-4" />
-                子项列表
+                {t("scene.items_list")}
               </h3>
 
               {scene.sub_previews.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
-                  暂无子项，进入场景后添加
+                  {t("scene.no_items")}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -271,15 +273,15 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                           </div>
                           <span className="text-sm font-medium truncate">{p.name}</span>
                           {p.is_expired && (
-                            <span className="text-[10px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded">已过期</span>
+                            <span className="text-[10px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded">{t("card.expired")}</span>
                           )}
                           {p.is_suspended && !p.is_expired && (
-                            <span className="text-[10px] bg-yellow-500/20 text-yellow-600 px-1.5 py-0.5 rounded">已暂停</span>
+                            <span className="text-[10px] bg-yellow-500/20 text-yellow-600 px-1.5 py-0.5 rounded">{t("card.suspended")}</span>
                           )}
                         </div>
                         <div className="text-right shrink-0">
                           {p.is_expired ? (
-                            <span className="text-sm text-muted-foreground">已过期</span>
+                            <span className="text-sm text-muted-foreground">{t("card.expired")}</span>
                           ) : (
                             <>
                               <span className="text-sm font-medium">
@@ -305,12 +307,12 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>编辑场景</DialogTitle>
+            <DialogTitle>{t("scene.edit")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             {/* Color */}
             <div className="grid gap-2">
-              <Label>配色</Label>
+              <Label>{t("scene.color_label")}</Label>
               <div className="flex flex-wrap gap-2 items-center">
                 {PRESET_COLORS.map((c) => (
                   <button
@@ -361,7 +363,7 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
                     size="sm"
                     onClick={() => { setEditIcon(null); setEditIconMime(null); }}
                   >
-                    清除
+                    {t("common.clear")}
                   </Button>
                 )}
               </div>
@@ -369,18 +371,18 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
 
             {/* Notes */}
             <div className="grid gap-2">
-              <Label>备注</Label>
+              <Label>{t("sub.notes")}</Label>
               <textarea
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
-                placeholder="添加备注..."
+                placeholder={t("scene.notes_hint")}
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
               />
             </div>
 
             {/* Link */}
             <div className="grid gap-2">
-              <Label>链接</Label>
+              <Label>{t("sub.link")}</Label>
               <Input
                 value={editLink}
                 onChange={(e) => setEditLink(e.target.value)}
@@ -390,9 +392,9 @@ export function SceneDetailSheet({ scene, onClose, onRefresh, onNavigate, exchan
 
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>{t("common.cancel")}</Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "保存中..." : "保存"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

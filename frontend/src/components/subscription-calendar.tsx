@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import type { Subscription } from "@/lib/types";
 import { intToHex } from "@/lib/color";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   subscriptions: Subscription[];
   selectedDate: string | null; // "YYYY-MM-DD" or null
   onSelectDate: (date: string | null) => void;
 }
-
-const WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -48,6 +47,7 @@ function getMonthDays(year: number, month: number) {
 }
 
 export function SubscriptionCalendar({ subscriptions, selectedDate, onSelectDate }: Props) {
+  const { t, locale } = useTranslations();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -83,7 +83,10 @@ export function SubscriptionCalendar({ subscriptions, selectedDate, onSelectDate
     else setViewMonth(viewMonth + 1);
   };
 
-  const monthLabel = `${viewYear}年${viewMonth + 1}月`;
+  const WEEKDAYS = [t("cal.mon"), t("cal.tue"), t("cal.wed"), t("cal.thu"), t("cal.fri"), t("cal.sat"), t("cal.sun")];
+  const monthLabel = locale === "zh"
+    ? `${viewYear}年${viewMonth + 1}月`
+    : new Date(viewYear, viewMonth).toLocaleDateString("en-US", { year: "numeric", month: "long" });
 
   return (
     <div className="select-none">

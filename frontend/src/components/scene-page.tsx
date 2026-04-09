@@ -21,13 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SceneWithSummary, SceneDetail, Subscription, Category } from "@/lib/types";
-import { BILLING_CYCLES, BILLING_CYCLE_LABELS, getBillingCycleShort, cycleToMonths } from "@/lib/types";
+import { BILLING_CYCLES, getBillingCycleShort, cycleToMonths } from "@/lib/types";
 import { getCycleFormat, getTargetCurrency, getNormalizeCycle } from "@/components/settings-page";
 import { formatCurrencyCompact, convertCurrency } from "@/lib/currency";
 import { SubscriptionCard } from "@/components/subscription-card";
 import { SubscriptionDialog } from "@/components/subscription-dialog";
 import { SubscriptionDetailSheet } from "@/components/subscription-detail-sheet";
 import * as api from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   scenes: SceneWithSummary[];
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneId, exchangeRates }: Props) {
+  const { t } = useTranslations();
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(initialSceneId ?? scenes[0]?.id ?? null);
   const [detail, setDetail] = useState<SceneDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,7 +75,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
       const d = await api.getScene(currentSceneId);
       setDetail(d);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "加载失败");
+      toast.error(e instanceof Error ? e.message : t("detail.load_failed"));
     } finally {
       setLoading(false);
     }
@@ -166,7 +168,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
 
   const handleCreateScene = async () => {
     if (!newSceneName.trim()) {
-      toast.error("请输入场景名称");
+      toast.error(t("scene.name"));
       return;
     }
     try {
@@ -174,13 +176,13 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         name: newSceneName.trim(),
         billing_cycle: newSceneCycle,
       });
-      toast.success("场景已创建");
+      toast.success(t("scene.saved"));
       setCreateOpen(false);
       setNewSceneName("");
       onRefresh();
       setCurrentSceneId(scene.id);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "创建失败");
+      toast.error(e instanceof Error ? e.message : t("scene.save_failed"));
     }
   };
 
@@ -192,20 +194,20 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         billing_cycle: sceneCycle,
         show_sub_logos: sceneShowLogos,
       });
-      toast.success("场景已更新");
+      toast.success(t("scene.saved"));
       setSceneSettingsOpen(false);
       refresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "更新失败");
+      toast.error(e instanceof Error ? e.message : t("scene.save_failed"));
     }
   };
 
   const handleDeleteScene = async () => {
     if (!currentSceneId) return;
-    if (!confirm("删除此场景？场景内的订阅将移回主页。")) return;
+    if (!confirm(t("scene.delete_confirm").replace("{name}", currentScene?.name ?? ""))) return;
     try {
       await api.deleteScene(currentSceneId);
-      toast.success("场景已删除");
+      toast.success(t("scene.deleted"));
       onRefresh();
       const remaining = scenes.filter(s => s.id !== currentSceneId);
       if (remaining.length > 0) {
@@ -214,7 +216,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         onBack();
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "删除失败");
+      toast.error(e instanceof Error ? e.message : t("scene.delete_failed"));
     }
   };
 
@@ -242,17 +244,17 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
 
   const releaseSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`确定将选中的 ${selectedIds.size} 项移出此场景？`)) return;
+    if (!confirm(t("scene.move_out"))) return;
     try {
       await Promise.all(
         Array.from(selectedIds).map(id => api.updateSubscription(id, { scene_id: null }))
       );
-      toast.success(`已释放 ${selectedIds.size} 项`);
+      toast.success(`${t("scene.batch_moved")} ${selectedIds.size}`);
       setSelectedIds(new Set());
       setSelectMode(false);
       refresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t("scene.batch_move_failed"));
     }
   };
 
@@ -262,12 +264,12 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
       await Promise.all(
         Array.from(selectedIds).map(id => api.updateSubscription(id, { show_on_main: value }))
       );
-      toast.success(value ? `已设置 ${selectedIds.size} 项在主页显示` : `已取消 ${selectedIds.size} 项在主页显示`);
+      toast.success(t("settings.save_ok"));
       setSelectedIds(new Set());
       setSelectMode(false);
       refresh();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     }
   };
 
@@ -283,13 +285,13 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center px-4">
             <Layers className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
-            <h2 className="text-xl font-bold font-['MiSans'] mb-2">还没有场景</h2>
-            <p className="text-muted-foreground mb-6 text-sm">
-              场景可以将一组订阅归类管理，例如：域名续费、云服务等
+            <h2 className="text-xl font-bold font-['MiSans'] mb-2">{t("scene.no_scenes")}</h2>
+            <p className="text-muted-foreground mb-6 text-sm break-words whitespace-normal">
+              {t("scene.create_first")}
             </p>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-1" />
-              创建第一个场景
+              {t("scene.add")}
             </Button>
           </div>
         </div>
@@ -298,19 +300,19 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>新建场景</DialogTitle>
+              <DialogTitle>{t("scene.create")}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label>名称</Label>
+                <Label>{t("scene.name")}</Label>
                 <Input
                   value={newSceneName}
                   onChange={(e) => setNewSceneName(e.target.value)}
-                  placeholder="例如：域名"
+                  placeholder={t("scene.name")}
                 />
               </div>
               <div className="grid gap-2">
-                <Label>展示周期</Label>
+                <Label>{t("sub.billing_cycle")}</Label>
                 <Select value={newSceneCycle} onValueChange={setNewSceneCycle}>
                   <SelectTrigger>
                     <SelectValue />
@@ -318,7 +320,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                   <SelectContent>
                     {BILLING_CYCLES.filter(c => c !== "custom_days").map((c) => (
                       <SelectItem key={c} value={c}>
-                        {BILLING_CYCLE_LABELS[c]}
+                        {t(`cycle.${c}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -326,8 +328,8 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-              <Button onClick={handleCreateScene}>创建</Button>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
+              <Button onClick={handleCreateScene}>{t("sub.create")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -345,18 +347,18 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
             <div className="mb-4 md:mb-6 flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h1 className="text-xl md:text-2xl font-bold font-['MiSans'] truncate">
-                  {currentScene?.name ?? "场景"}
+                  {currentScene?.name ?? t("scene.select")}
                 </h1>
                 <p className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate">
-                  共 {detail?.subscriptions.length ?? 0} 项
-                  {totalNormalized > 0 && ` · 合计 ${formatCurrencyCompact(totalNormalized, targetCurrency)}${getBillingCycleShort(displayCycleName, getCycleFormat())}`}
+                  {detail?.subscriptions.length ?? 0} {t("scene.subscriptions")}
+                  {totalNormalized > 0 && ` · ${t("scene.total")} ${formatCurrencyCompact(totalNormalized, targetCurrency)}${getBillingCycleShort(displayCycleName, getCycleFormat())}`}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* Mobile scene selector */}
                 <Select value={currentSceneId ?? ""} onValueChange={setCurrentSceneId}>
                   <SelectTrigger className="md:hidden w-auto min-w-0 max-w-[120px] h-10">
-                    <SelectValue placeholder="切换场景" />
+                    <SelectValue placeholder={t("scene.select")} />
                   </SelectTrigger>
                   <SelectContent>
                     {scenes.map((s) => (
@@ -371,10 +373,10 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="billing_date">按日期</SelectItem>
-                    <SelectItem value="name">按名称</SelectItem>
-                    <SelectItem value="price_high">价格高→低</SelectItem>
-                    <SelectItem value="price_low">价格低→高</SelectItem>
+                    <SelectItem value="billing_date">{t("sort.date_asc")}</SelectItem>
+                    <SelectItem value="name">{t("sort.name_asc")}</SelectItem>
+                    <SelectItem value="price_high">{t("sort.price_desc")}</SelectItem>
+                    <SelectItem value="price_low">{t("sort.price_asc")}</SelectItem>
                   </SelectContent>
                 </Select>
                 {/* Select mode / batch actions */}
@@ -384,23 +386,23 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                     variant="outline"
                     className="rounded-full h-10 w-10"
                     onClick={() => setSelectMode(true)}
-                    title="批量操作"
+                    title={t("scene.batch_move")}
                   >
                     <CheckSquare className="h-4 w-4" />
                   </Button>
                 ) : (
                   <>
-                    <Button size="sm" variant="outline" onClick={selectAll}>全选</Button>
+                    <Button size="sm" variant="outline" onClick={selectAll}>{t("scene.select_all")}</Button>
                     <Button size="sm" variant="outline" onClick={() => batchSetShowOnMain(true)} disabled={selectedIds.size === 0}>
-                      主页显示
+                      {t("sub.show_on_main")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => batchSetShowOnMain(false)} disabled={selectedIds.size === 0}>
-                      取消主页
+                      {t("scene.deselect_all")}
                     </Button>
                     <Button size="sm" variant="destructive" onClick={releaseSelected} disabled={selectedIds.size === 0}>
-                      释放 ({selectedIds.size})
+                      {t("scene.batch_move")} ({selectedIds.size})
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={exitSelectMode}>取消</Button>
+                    <Button size="sm" variant="ghost" onClick={exitSelectMode}>{t("common.cancel")}</Button>
                   </>
                 )}
                 <Button size="icon" variant="outline" className="rounded-full h-10 w-10" onClick={openSceneSettings}>
@@ -424,12 +426,12 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
             {/* List */}
             {loading ? (
               <div className="flex items-center justify-center py-20 text-muted-foreground">
-                加载中...
+                {t("common.loading")}
               </div>
             ) : !detail || detail.subscriptions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                <p>暂无订阅</p>
-                <p className="text-sm">点击 + 添加订阅到此场景</p>
+                <p>{t("scene.no_subs")}</p>
+                <p className="text-sm">{t("scene.add_first")}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-2 md:gap-3">
@@ -464,7 +466,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
         {/* Desktop Right sidebar: scene list */}
         <div className="hidden md:block w-60 shrink-0 border-l bg-muted/10 overflow-y-auto">
           <div className="p-4">
-            <h3 className="text-sm font-semibold mb-3">所有场景</h3>
+            <h3 className="text-sm font-semibold mb-3">{t("scene.select")}</h3>
             <div className="space-y-1">
               {scenes.map((s) => (
                 <button
@@ -478,7 +480,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                 >
                   <div className="font-medium truncate">{s.name}</div>
                   <div className={`text-xs ${s.id === currentSceneId ? "opacity-80" : "text-muted-foreground"}`}>
-                    {s.sub_count}个子项
+                    {s.sub_count} {t("scene.subs")}
                   </div>
                 </button>
               ))}
@@ -490,7 +492,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
               onClick={() => setCreateOpen(true)}
             >
               <Plus className="h-4 w-4 mr-1" />
-              新建场景
+              {t("scene.add")}
             </Button>
           </div>
         </div>
@@ -527,15 +529,15 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
       <Dialog open={sceneSettingsOpen} onOpenChange={setSceneSettingsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>场景设置</DialogTitle>
+            <DialogTitle>{t("scene.settings")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label>名称</Label>
+              <Label>{t("scene.name")}</Label>
               <Input value={sceneName} onChange={(e) => setSceneName(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>展示周期</Label>
+              <Label>{t("sub.billing_cycle")}</Label>
               <Select value={sceneCycle} onValueChange={setSceneCycle}>
                 <SelectTrigger>
                   <SelectValue />
@@ -543,7 +545,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                 <SelectContent>
                   {BILLING_CYCLES.filter(c => c !== "custom_days").map((c) => (
                     <SelectItem key={c} value={c}>
-                      {BILLING_CYCLE_LABELS[c]}
+                      {t(`cycle.${c}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -557,17 +559,17 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                 onChange={(e) => setSceneShowLogos(e.target.checked)}
                 className="h-4 w-4 rounded"
               />
-              <Label htmlFor="showLogos">在主页卡片上显示子项Logo</Label>
+              <Label htmlFor="showLogos">{t("sub.show_on_main")}</Label>
             </div>
           </div>
           <DialogFooter className="flex justify-between">
             <Button variant="destructive" size="sm" onClick={handleDeleteScene}>
               <Trash2 className="h-4 w-4 mr-1" />
-              删除场景
+              {t("common.delete")}
             </Button>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setSceneSettingsOpen(false)}>取消</Button>
-              <Button onClick={handleUpdateScene}>保存</Button>
+              <Button variant="outline" onClick={() => setSceneSettingsOpen(false)}>{t("common.cancel")}</Button>
+              <Button onClick={handleUpdateScene}>{t("common.save")}</Button>
             </div>
           </DialogFooter>
         </DialogContent>
@@ -577,19 +579,19 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>新建场景</DialogTitle>
+            <DialogTitle>{t("scene.create")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label>名称</Label>
+              <Label>{t("scene.name")}</Label>
               <Input
                 value={newSceneName}
                 onChange={(e) => setNewSceneName(e.target.value)}
-                placeholder="例如：域名"
+                placeholder={t("scene.name")}
               />
             </div>
             <div className="grid gap-2">
-              <Label>展示周期</Label>
+              <Label>{t("sub.billing_cycle")}</Label>
               <Select value={newSceneCycle} onValueChange={setNewSceneCycle}>
                 <SelectTrigger>
                   <SelectValue />
@@ -597,7 +599,7 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
                 <SelectContent>
                   {BILLING_CYCLES.filter(c => c !== "custom_days").map((c) => (
                     <SelectItem key={c} value={c}>
-                      {BILLING_CYCLE_LABELS[c]}
+                      {t(`cycle.${c}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -605,8 +607,8 @@ export function ScenePage({ scenes, categories, onBack, onRefresh, initialSceneI
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-            <Button onClick={handleCreateScene}>创建</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
+            <Button onClick={handleCreateScene}>{t("sub.create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

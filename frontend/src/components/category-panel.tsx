@@ -10,6 +10,7 @@ import type { Category, Subscription } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FaIconPicker } from "@/components/fa-icon-picker";
 import { parseFaIcon, getFaClass } from "@/lib/fa-icons";
+import { useTranslations } from "@/lib/i18n";
 
 interface Props {
   categories: Category[];
@@ -51,6 +52,7 @@ export function CategoryPanel({
   onFilterChange,
   onRefresh,
 }: Props) {
+  const { t } = useTranslations();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editFaIcon, setEditFaIcon] = useState<string | null>(null);
@@ -74,23 +76,23 @@ export function CategoryPanel({
     if (editingId == null || !editName.trim()) return;
     try {
       await api.updateCategory(editingId, { name: editName.trim(), fa_icon: editFaIcon });
-      toast.success("已更新");
+      toast.success(t("category.saved"));
       setEditingId(null);
       onRefresh();
     } catch (e: unknown) {
-      toast.error("更新失败: " + (e instanceof Error ? e.message : "未知错误"));
+      toast.error(t("category.save_failed") + ": " + (e instanceof Error ? e.message : ""));
     }
   };
 
   const handleDelete = async (id: number) => {
     const count = countMap.get(id) ?? 0;
     if (count > 0) {
-      toast.error(`该分类下还有 ${count} 个订阅，无法删除`);
+      toast.error(`${t("category.delete_failed")} (${count})`);
       return;
     }
     try {
       await api.deleteCategory(id);
-      toast.success("已删除");
+      toast.success(t("category.deleted"));
       if (selectedCategoryIds.has(id)) {
         const next = new Set(selectedCategoryIds);
         next.delete(id);
@@ -98,7 +100,7 @@ export function CategoryPanel({
       }
       onRefresh();
     } catch (e: unknown) {
-      toast.error("删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      toast.error(t("category.delete_failed") + ": " + (e instanceof Error ? e.message : ""));
     }
   };
 
@@ -106,12 +108,12 @@ export function CategoryPanel({
     if (!newName.trim()) return;
     try {
       await api.createCategory({ name: newName.trim() });
-      toast.success("已创建");
+      toast.success(t("category.saved"));
       setAddingNew(false);
       setNewName("");
       onRefresh();
     } catch (e: unknown) {
-      toast.error("创建失败: " + (e instanceof Error ? e.message : "未知错误"));
+      toast.error(t("category.save_failed") + ": " + (e instanceof Error ? e.message : ""));
     }
   };
 
@@ -132,7 +134,7 @@ export function CategoryPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="text-sm font-semibold flex items-center gap-2">
           <FolderOpen className="h-4 w-4" />
-          分类管理
+          {t("category.manage")}
         </h2>
         <Button
           variant="ghost"
@@ -154,7 +156,7 @@ export function CategoryPanel({
             allSelected ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent text-muted-foreground"
           )}
         >
-          <span className="flex-1 text-left">全部</span>
+          <span className="flex-1 text-left">{t("category.all")}</span>
           <span className="text-xs opacity-60">{subscriptions.length}</span>
         </button>
 
@@ -194,7 +196,7 @@ export function CategoryPanel({
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">图标:</span>
+                    <span className="text-xs text-muted-foreground">{t("category.icon")}:</span>
                     <FaIconPicker value={editFaIcon} onChange={setEditFaIcon} />
                   </div>
                 </div>
@@ -204,7 +206,7 @@ export function CategoryPanel({
                     className="flex-1 text-left truncate"
                     onClick={() => toggleFilter(cat.id)}
                   >
-                    {cat.name}
+                    {t(`category.${cat.name}`, cat.name)}
                   </button>
                   <span className="text-xs opacity-50">{count}</span>
                   <div className="hidden group-hover:flex items-center gap-0.5">
@@ -232,7 +234,7 @@ export function CategoryPanel({
           <div className="h-5 w-5 shrink-0 rounded flex items-center justify-center bg-muted">
             <span className="text-[10px] text-muted-foreground">?</span>
           </div>
-          <span className="flex-1 text-left">未分类</span>
+          <span className="flex-1 text-left">{t("category.uncategorized")}</span>
           <span className="text-xs opacity-60">{uncategorizedCount}</span>
         </button>
 
@@ -242,7 +244,7 @@ export function CategoryPanel({
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="新分类名称"
+              placeholder={t("category.name")}
               className="h-7 text-sm flex-1"
               onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAddingNew(false); }}
               autoFocus

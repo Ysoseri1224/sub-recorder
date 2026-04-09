@@ -16,8 +16,10 @@ import {
   testNotification,
   type NotificationChannel,
 } from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
 
 export function NotificationsPage() {
+  const { t } = useTranslations();
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -67,7 +69,7 @@ export function NotificationsPage() {
       const data = await listNotificationChannels();
       setChannels(data);
     } catch (e) {
-      toast.error("加载通知渠道失败");
+      toast.error(t("notif.save_fail"));
     } finally {
       setLoading(false);
     }
@@ -142,7 +144,7 @@ export function NotificationsPage() {
   // 自动获取 Telegram Chat ID
   const fetchTelegramChatId = async () => {
     if (!telegramBotToken.trim()) {
-      toast.error("请先填写机器人令牌");
+      toast.error(t("notif.telegram_token"));
       return;
     }
     setFetchingChatId(true);
@@ -150,24 +152,23 @@ export function NotificationsPage() {
       const resp = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getUpdates?limit=10`);
       const data = await resp.json();
       if (!data.ok) {
-        toast.error(data.description || "获取失败");
+        toast.error(data.description || t("notif.test_fail"));
         return;
       }
       if (!data.result || data.result.length === 0) {
-        toast.error("没有找到消息，请先给机器人发送一条消息");
+        toast.error(t("notif.test_fail"));
         return;
       }
-      // 获取最新的 chat_id
       const lastMsg = data.result[data.result.length - 1];
       const chatId = lastMsg.message?.chat?.id || lastMsg.channel_post?.chat?.id;
       if (chatId) {
         setTelegramChatId(String(chatId));
-        toast.success(`已获取 Chat ID: ${chatId}`);
+        toast.success(`${t("notif.telegram_chat")}: ${chatId}`);
       } else {
-        toast.error("无法解析 Chat ID");
+        toast.error(t("notif.test_fail"));
       }
     } catch (e: any) {
-      toast.error(e.message || "获取失败");
+      toast.error(e.message || t("notif.test_fail"));
     } finally {
       setFetchingChatId(false);
     }
@@ -175,7 +176,7 @@ export function NotificationsPage() {
 
   const handleSave = async () => {
     if (!formName.trim()) {
-      toast.error("请输入渠道名称");
+      toast.error(t("notif.name"));
       return;
     }
 
@@ -183,7 +184,7 @@ export function NotificationsPage() {
 
     if (formType === "smtp") {
       if (!smtpHost || !smtpFromEmail || !smtpToEmail) {
-        toast.error("请填写完整的 SMTP 配置");
+        toast.error(t("notif.smtp_host"));
         return;
       }
       config = {
@@ -198,7 +199,7 @@ export function NotificationsPage() {
       };
     } else if (formType === "onebot") {
       if (!webhookUrl || !onebotTargetId) {
-        toast.error("请填写完整的 OneBot 配置");
+        toast.error(t("notif.webhook_url"));
         return;
       }
       config = {
@@ -209,7 +210,7 @@ export function NotificationsPage() {
       };
     } else if (formType === "telegram") {
       if (!telegramBotToken || !telegramChatId) {
-        toast.error("请填写完整的 Telegram 配置");
+        toast.error(t("notif.telegram_token"));
         return;
       }
       config = {
@@ -219,7 +220,7 @@ export function NotificationsPage() {
       };
     } else if (formType === "webhook") {
       if (!webhookUrl) {
-        toast.error("请填写 Webhook URL");
+        toast.error(t("notif.webhook_url"));
         return;
       }
       
@@ -228,7 +229,7 @@ export function NotificationsPage() {
         try {
           headers = JSON.parse(webhookHeaders);
         } catch (e) {
-          toast.error("Headers 格式错误，请使用 JSON 格式");
+          toast.error(t("notif.webhook_body"));
           return;
         }
       }
@@ -248,7 +249,7 @@ export function NotificationsPage() {
           enabled: formEnabled,
           config,
         });
-        toast.success("渠道已更新");
+        toast.success(t("notif.save_ok"));
       } else {
         await createNotificationChannel({
           name: formName,
@@ -256,24 +257,24 @@ export function NotificationsPage() {
           enabled: formEnabled,
           config,
         });
-        toast.success("渠道已创建");
+        toast.success(t("notif.save_ok"));
       }
       resetForm();
       loadChannels();
     } catch (e: any) {
-      toast.error(e.message || "保存失败");
+      toast.error(e.message || t("notif.save_fail"));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这个通知渠道吗？")) return;
+    if (!confirm(t("notif.delete_confirm"))) return;
 
     try {
       await deleteNotificationChannel(id);
-      toast.success("渠道已删除");
+      toast.success(t("notif.deleted"));
       loadChannels();
     } catch (e: any) {
-      toast.error(e.message || "删除失败");
+      toast.error(e.message || t("notif.delete_failed"));
     }
   };
 
@@ -282,7 +283,7 @@ export function NotificationsPage() {
 
     if (formType === "smtp") {
       if (!smtpHost || !smtpFromEmail || !smtpToEmail) {
-        toast.error("请填写完整的 SMTP 配置");
+        toast.error(t("notif.smtp_host"));
         return;
       }
       config = {
@@ -297,7 +298,7 @@ export function NotificationsPage() {
       };
     } else if (formType === "onebot") {
       if (!webhookUrl || !onebotTargetId) {
-        toast.error("请填写完整的 OneBot 配置");
+        toast.error(t("notif.webhook_url"));
         return;
       }
       config = {
@@ -308,7 +309,7 @@ export function NotificationsPage() {
       };
     } else if (formType === "telegram") {
       if (!telegramBotToken || !telegramChatId) {
-        toast.error("请填写完整的 Telegram 配置");
+        toast.error(t("notif.telegram_token"));
         return;
       }
       config = {
@@ -318,7 +319,7 @@ export function NotificationsPage() {
       };
     } else if (formType === "webhook") {
       if (!webhookUrl) {
-        toast.error("请填写 Webhook URL");
+        toast.error(t("notif.webhook_url"));
         return;
       }
 
@@ -327,7 +328,7 @@ export function NotificationsPage() {
         try {
           headers = JSON.parse(webhookHeaders);
         } catch (e) {
-          toast.error("Headers 格式错误");
+          toast.error(t("notif.webhook_body"));
           return;
         }
       }
@@ -346,9 +347,9 @@ export function NotificationsPage() {
         channel_type: formType,
         config,
       });
-      toast.success(result.message || "测试成功");
+      toast.success(result.message || t("notif.test_ok"));
     } catch (e: any) {
-      toast.error(e.message || "测试失败");
+      toast.error(e.message || t("notif.test_fail"));
     } finally {
       setTesting(false);
     }
@@ -361,21 +362,21 @@ export function NotificationsPage() {
       });
       loadChannels();
     } catch (e: any) {
-      toast.error(e.message || "更新失败");
+      toast.error(e.message || t("notif.save_fail"));
     }
   };
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto py-8 px-6">加载中...</div>;
+    return <div className="max-w-4xl mx-auto py-8 px-6">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold font-['MiSans']">通知管理</h1>
+        <h1 className="text-2xl font-bold font-['MiSans']">{t("notif.title")}</h1>
         <Button onClick={() => setShowAddForm(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />
-          添加渠道
+          {t("notif.add")}
         </Button>
       </div>
 
@@ -384,8 +385,8 @@ export function NotificationsPage() {
         {channels.length === 0 && !showAddForm && (
           <div className="text-center py-12 text-muted-foreground">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>还没有配置通知渠道</p>
-            <p className="text-sm mt-2">点击上方"添加渠道"按钮开始配置</p>
+            <p>{t("notif.no_channels")}</p>
+            <p className="text-sm mt-2">{t("notif.add")}</p>
           </div>
         )}
 
@@ -400,10 +401,10 @@ export function NotificationsPage() {
                 <div>
                   <div className="font-medium">{channel.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {channel.channel_type === "smtp" && "邮件通知"}
-                    {channel.channel_type === "onebot" && "OneBot (QQ机器人)"}
-                    {channel.channel_type === "telegram" && "Telegram 机器人"}
-                    {channel.channel_type === "webhook" && "自定义 Webhook"}
+                    {channel.channel_type === "smtp" && t("notif.smtp_host")}
+                    {channel.channel_type === "onebot" && "OneBot"}
+                    {channel.channel_type === "telegram" && "Telegram"}
+                    {channel.channel_type === "webhook" && t("notif.webhook_url")}
                   </div>
                 </div>
               </div>
@@ -413,7 +414,7 @@ export function NotificationsPage() {
                   onCheckedChange={() => handleToggleEnabled(channel)}
                 />
                 <Button variant="ghost" size="sm" onClick={() => handleEdit(channel)}>
-                  编辑
+                  {t("common.edit")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -433,14 +434,14 @@ export function NotificationsPage() {
       {showAddForm && (
         <div className="p-6 rounded-xl border bg-card space-y-4">
           <h2 className="text-lg font-medium">
-            {editingChannel ? "编辑通知渠道" : "添加通知渠道"}
+            {editingChannel ? t("common.edit") + " " + t("notif.title") : t("notif.add")}
           </h2>
 
           <div className="space-y-4">
             {/* 通知类型选择 - 放在最前面且更醒目 */}
             {!editingChannel && (
               <div className="space-y-2">
-                <Label className="text-base font-medium">选择通知类型</Label>
+                <Label className="text-base font-medium">{t("notif.type")}</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
                     type="button"
@@ -453,9 +454,9 @@ export function NotificationsPage() {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <Mail className="h-4 w-4" />
-                      <span className="font-medium text-sm">邮件</span>
+                      <span className="font-medium text-sm">{t("notif.smtp_host")}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">SMTP 邮件通知</p>
+                    <p className="text-xs text-muted-foreground">SMTP</p>
                   </button>
                   <button
                     type="button"
@@ -470,7 +471,7 @@ export function NotificationsPage() {
                       <Webhook className="h-4 w-4" />
                       <span className="font-medium text-sm">OneBot</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">QQ 机器人</p>
+                    <p className="text-xs text-muted-foreground">OneBot</p>
                   </button>
                   <button
                     type="button"
@@ -485,7 +486,7 @@ export function NotificationsPage() {
                       <Send className="h-4 w-4" />
                       <span className="font-medium text-sm">Telegram</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">Telegram 机器人</p>
+                    <p className="text-xs text-muted-foreground">Telegram</p>
                   </button>
                   <button
                     type="button"
@@ -500,7 +501,7 @@ export function NotificationsPage() {
                       <Webhook className="h-4 w-4" />
                       <span className="font-medium text-sm">Webhook</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">自定义 HTTP</p>
+                    <p className="text-xs text-muted-foreground">{t("notif.webhook_method")}</p>
                   </button>
                 </div>
               </div>
@@ -509,15 +510,15 @@ export function NotificationsPage() {
             {/* 基本信息 */}
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="space-y-2">
-                <Label>渠道名称</Label>
+                <Label>{t("notif.name")}</Label>
                 <Input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder={formType === "smtp" ? "例如：我的邮箱" : "例如：QQ 机器人"}
+                  placeholder={t("notif.name")}
                 />
               </div>
               <div className="flex items-center justify-between pt-6">
-                <Label>启用此渠道</Label>
+                <Label>{t("notif.enabled")}</Label>
                 <Switch checked={formEnabled} onCheckedChange={setFormEnabled} />
               </div>
             </div>
@@ -526,7 +527,7 @@ export function NotificationsPage() {
             {formType === "onebot" && (
               <div className="space-y-4 pt-4 border-t">
                 <div className="space-y-2">
-                  <Label>OneBot HTTP 地址</Label>
+                  <Label>{t("notif.webhook_url")}</Label>
                   <Input
                     value={webhookUrl}
                     onChange={(e) => setWebhookUrl(e.target.value)}
@@ -536,7 +537,7 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Access Token（可选）</Label>
+                  <Label>{t("common.optional")}: Access Token</Label>
                   <Input
                     type="password"
                     value={onebotAccessToken}
@@ -550,7 +551,7 @@ export function NotificationsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>消息类型</Label>
+                    <Label>{t("notif.type")}</Label>
                     <Select 
                       value={onebotMessageType} 
                       onValueChange={(v: "private" | "group") => setOnebotMessageType(v)}
@@ -559,8 +560,8 @@ export function NotificationsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="private">私聊消息</SelectItem>
-                        <SelectItem value="group">群消息</SelectItem>
+                        <SelectItem value="private">{t("notif.smtp_from")}</SelectItem>
+                        <SelectItem value="group">{t("notif.smtp_to")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -580,7 +581,7 @@ export function NotificationsPage() {
             {formType === "telegram" && (
               <div className="space-y-4 pt-4 border-t">
                 <div className="space-y-2">
-                  <Label>机器人令牌 (Bot Token)</Label>
+                  <Label>{t("notif.telegram_token")}</Label>
                   <Input
                     type="password"
                     value={telegramBotToken}
@@ -623,8 +624,8 @@ export function NotificationsPage() {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>静默发送</Label>
-                    <p className="text-xs text-muted-foreground">消息发布后用户会收到无声通知</p>
+                    <Label>{t("notif.telegram_silent")}</Label>
+                    <p className="text-xs text-muted-foreground">{t("notif.telegram_silent")}</p>
                   </div>
                   <Switch checked={telegramSilent} onCheckedChange={setTelegramSilent} />
                 </div>
@@ -644,7 +645,7 @@ export function NotificationsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>HTTP 方法</Label>
+                    <Label>{t("notif.webhook_method")}</Label>
                     <Select value={webhookMethod} onValueChange={setWebhookMethod}>
                       <SelectTrigger>
                         <SelectValue />
@@ -658,7 +659,7 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>自定义 Headers (JSON 格式，可选)</Label>
+                  <Label>{t("notif.webhook_body")} ({t("common.optional")})</Label>
                   <textarea
                     className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border bg-background"
                     value={webhookHeaders}
@@ -684,7 +685,7 @@ export function NotificationsPage() {
               <div className="space-y-4 pt-4 border-t">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>SMTP 服务器</Label>
+                    <Label>{t("notif.smtp_host")}</Label>
                     <Input
                       value={smtpHost}
                       onChange={(e) => setSmtpHost(e.target.value)}
@@ -692,7 +693,7 @@ export function NotificationsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>端口</Label>
+                    <Label>{t("notif.smtp_port")}</Label>
                     <Input
                       type="number"
                       value={smtpPort}
@@ -704,7 +705,7 @@ export function NotificationsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>用户名</Label>
+                    <Label>{t("notif.smtp_user")}</Label>
                     <Input
                       value={smtpUsername}
                       onChange={(e) => setSmtpUsername(e.target.value)}
@@ -712,7 +713,7 @@ export function NotificationsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>密码</Label>
+                    <Label>{t("notif.smtp_pass")}</Label>
                     <Input
                       type="password"
                       value={smtpPassword}
@@ -724,7 +725,7 @@ export function NotificationsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>发件人邮箱</Label>
+                    <Label>{t("notif.smtp_from")}</Label>
                     <Input
                       value={smtpFromEmail}
                       onChange={(e) => setSmtpFromEmail(e.target.value)}
@@ -732,7 +733,7 @@ export function NotificationsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>发件人名称</Label>
+                    <Label>{t("notif.smtp_user")}</Label>
                     <Input
                       value={smtpFromName}
                       onChange={(e) => setSmtpFromName(e.target.value)}
@@ -742,7 +743,7 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>收件人邮箱</Label>
+                  <Label>{t("notif.smtp_to")}</Label>
                   <Input
                     value={smtpToEmail}
                     onChange={(e) => setSmtpToEmail(e.target.value)}
@@ -751,7 +752,7 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>使用 TLS</Label>
+                  <Label>{t("notif.smtp_ssl")}</Label>
                   <Switch checked={smtpUseTls} onCheckedChange={setSmtpUseTls} />
                 </div>
               </div>
@@ -761,13 +762,13 @@ export function NotificationsPage() {
             <div className="flex gap-2 pt-4">
               <Button onClick={handleSave}>
                 <Check className="h-4 w-4 mr-1" />
-                保存
+                {t("common.save")}
               </Button>
               <Button variant="outline" onClick={handleTest} disabled={testing}>
-                {testing ? "测试中..." : "发送测试"}
+                {testing ? t("notif.testing") : t("notif.test")}
               </Button>
               <Button variant="ghost" onClick={resetForm}>
-                取消
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
