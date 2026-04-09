@@ -10,7 +10,9 @@
 
 > 多币种 · 自动汇率 · 账单周期 · 场景分组 · 分类筛选 · 多渠道通知
 
-👉 **在线演示**：<https://sub-recorder.onrender.com/>
+👉 **在线演示**：<https://sub-recorder-latest.onrender.com>
+
+> 演示账号：用户名 `admin` · 密码 `Admin@test.com！`
 
 <!-- 在此放置截图
 ![screenshot](docs/screenshot.png)
