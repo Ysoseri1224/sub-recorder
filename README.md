@@ -150,6 +150,13 @@ sudo chown -R 1000:1000 ./data
   - 货币选择列表（27 种货币本地化名称）
   - 场景管理、分类管理、设置页全部文案
 
+### 通知渠道扩展
+
+- **新增 Discord 通知渠道**：专属 UI 表单，填入 Discord Webhook URL 和可选的机器人显示名，后端独立 `do_test_discord` 实现，支持发送测试消息
+- **新增微信 Bot 通知渠道**：专属 UI 表单，配置 WeChatBot HTTP 推送地址（`PUSH_PORT`）、接收方 wxid/群 ID 和可选 Token；后端独立 `do_test_wechat` 实现，消息通过 WeChatBot 的 `/notify` 接口转发到微信
+- **修复 OneBot / Telegram 配置界面未翻译的中文**：所有提示文案（API 地址说明、Access Token 警告、Auto Fetch 按钮、Chat ID 提示等）已全部接入 `i18n.ts` 翻译系统，在英文模式下正确显示英文
+- **补全 20+ 条通知相关 i18n 翻译键**：覆盖 OneBot、Telegram、自定义 Webhook、Discord、微信 Bot 所有配置字段的中英文翻译
+
 ### Bug 修复
 
 - **修复后端 SQL 歧义列名错误**：`get_stats` 函数的 JOIN 查询中 `name` 列未加表别名，导致 `ambiguous column name: name` 运行时报错；通过引入 `SUB_COLUMNS_PREFIXED` 常量（所有列加 `s.` 前缀）修复
