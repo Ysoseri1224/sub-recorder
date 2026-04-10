@@ -566,3 +566,21 @@ pub struct WebhookChannelConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub silent: Option<bool>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscordChannelConfig {
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub username: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WechatChannelConfig {
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub to: String,
+    #[serde(default)]
+    pub token: String,
+}

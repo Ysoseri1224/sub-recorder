@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Mail, Webhook, Check, AlertCircle, Send, Loader2 } from "lucide-react";
+import { Plus, Trash2, Mail, Webhook, Check, AlertCircle, Send, Loader2, MessageSquare, MessageCircle } from "lucide-react";
 import {
   listNotificationChannels,
   createNotificationChannel,
@@ -26,7 +26,7 @@ export function NotificationsPage() {
   const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null);
 
   // 新增/编辑表单状态 - 4种独立类型
-  const [formType, setFormType] = useState<"smtp" | "onebot" | "telegram" | "webhook">("smtp");
+  const [formType, setFormType] = useState<"smtp" | "onebot" | "telegram" | "webhook" | "discord" | "wechat">("smtp");
   const [formName, setFormName] = useState("");
   const [formEnabled, setFormEnabled] = useState(true);
 
@@ -57,6 +57,15 @@ export function NotificationsPage() {
   const [telegramChatId, setTelegramChatId] = useState("");
   const [telegramSilent, setTelegramSilent] = useState(false);
   const [fetchingChatId, setFetchingChatId] = useState(false);
+
+  // Discord 专用配置
+  const [discordUrl, setDiscordUrl] = useState("");
+  const [discordUsername, setDiscordUsername] = useState("");
+
+  // WeChat Bot 专用配置
+  const [wechatUrl, setWechatUrl] = useState("");
+  const [wechatTo, setWechatTo] = useState("");
+  const [wechatToken, setWechatToken] = useState("");
 
   const [testing, setTesting] = useState(false);
 
@@ -101,7 +110,14 @@ export function NotificationsPage() {
     setTelegramBotToken("");
     setTelegramChatId("");
     setTelegramSilent(false);
-    
+
+    setDiscordUrl("");
+    setDiscordUsername("");
+
+    setWechatUrl("");
+    setWechatTo("");
+    setWechatToken("");
+
     setEditingChannel(null);
     setShowAddForm(false);
   };
@@ -136,6 +152,13 @@ export function NotificationsPage() {
       setWebhookMethod(config.method || "POST");
       setWebhookHeaders(config.headers ? JSON.stringify(config.headers, null, 2) : "");
       setWebhookBodyTemplate(config.body_template || '{"message": "{message"}');
+    } else if (channel.channel_type === "discord") {
+      setDiscordUrl(config.url || "");
+      setDiscordUsername(config.username || "");
+    } else if (channel.channel_type === "wechat") {
+      setWechatUrl(config.url || "");
+      setWechatTo(config.to || "");
+      setWechatToken(config.token || "");
     }
 
     setShowAddForm(true);
@@ -240,6 +263,18 @@ export function NotificationsPage() {
         headers,
         body_template: webhookBodyTemplate,
       };
+    } else if (formType === "discord") {
+      if (!discordUrl) {
+        toast.error(t("notif.discord_url"));
+        return;
+      }
+      config = { url: discordUrl, username: discordUsername };
+    } else if (formType === "wechat") {
+      if (!wechatUrl || !wechatTo) {
+        toast.error(t("notif.wechat_url"));
+        return;
+      }
+      config = { url: wechatUrl, to: wechatTo, token: wechatToken };
     }
 
     try {
@@ -339,6 +374,18 @@ export function NotificationsPage() {
         headers,
         body_template: webhookBodyTemplate,
       };
+    } else if (formType === "discord") {
+      if (!discordUrl) {
+        toast.error(t("notif.discord_url"));
+        return;
+      }
+      config = { url: discordUrl, username: discordUsername };
+    } else if (formType === "wechat") {
+      if (!wechatUrl || !wechatTo) {
+        toast.error(t("notif.wechat_url"));
+        return;
+      }
+      config = { url: wechatUrl, to: wechatTo, token: wechatToken };
     }
 
     setTesting(true);
@@ -398,6 +445,8 @@ export function NotificationsPage() {
                 {channel.channel_type === "onebot" && <Webhook className="h-5 w-5 text-muted-foreground" />}
                 {channel.channel_type === "telegram" && <Send className="h-5 w-5 text-muted-foreground" />}
                 {channel.channel_type === "webhook" && <Webhook className="h-5 w-5 text-muted-foreground" />}
+                {channel.channel_type === "discord" && <MessageSquare className="h-5 w-5 text-muted-foreground" />}
+                {channel.channel_type === "wechat" && <MessageCircle className="h-5 w-5 text-muted-foreground" />}
                 <div>
                   <div className="font-medium">{channel.name}</div>
                   <div className="text-xs text-muted-foreground">
@@ -405,6 +454,8 @@ export function NotificationsPage() {
                     {channel.channel_type === "onebot" && "OneBot"}
                     {channel.channel_type === "telegram" && "Telegram"}
                     {channel.channel_type === "webhook" && t("notif.webhook_url")}
+                    {channel.channel_type === "discord" && "Discord"}
+                    {channel.channel_type === "wechat" && t("notif.wechat_url")}
                   </div>
                 </div>
               </div>
@@ -442,7 +493,7 @@ export function NotificationsPage() {
             {!editingChannel && (
               <div className="space-y-2">
                 <Label className="text-base font-medium">{t("notif.type")}</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => setFormType("smtp")}
@@ -503,6 +554,36 @@ export function NotificationsPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">{t("notif.webhook_method")}</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormType("discord")}
+                    className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                      formType === "discord"
+                        ? "border-primary bg-primary/5"
+                        : "border-muted hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="font-medium text-sm">Discord</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Discord</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormType("wechat")}
+                    className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                      formType === "wechat"
+                        ? "border-primary bg-primary/5"
+                        : "border-muted hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <MessageCircle className="h-4 w-4" />
+                      <span className="font-medium text-sm">{t("notif.wechat_url").split(" ")[0]}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">WeChatBot</p>
+                  </button>
                 </div>
               </div>
             )}
@@ -533,7 +614,7 @@ export function NotificationsPage() {
                     onChange={(e) => setWebhookUrl(e.target.value)}
                     placeholder="http://127.0.0.1:5700"
                   />
-                  <p className="text-xs text-muted-foreground">OneBot 实现的 HTTP API 地址（不含路径）</p>
+                  <p className="text-xs text-muted-foreground">{t("notif.onebot_url_hint")}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -542,10 +623,10 @@ export function NotificationsPage() {
                     type="password"
                     value={onebotAccessToken}
                     onChange={(e) => setOnebotAccessToken(e.target.value)}
-                    placeholder="留空则不使用鉴权"
+                    placeholder={t("notif.onebot_token_placeholder")}
                   />
                   <p className="text-xs text-amber-600 dark:text-amber-500">
-                    ⚠️ 出于安全原因，任何暴露到公网的 HTTP 地址，请务必设置 Access Token
+                    ⚠️ {t("notif.onebot_token_warning")}
                   </p>
                 </div>
 
@@ -560,17 +641,17 @@ export function NotificationsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="private">{t("notif.smtp_from")}</SelectItem>
-                        <SelectItem value="group">{t("notif.smtp_to")}</SelectItem>
+                        <SelectItem value="private">{t("notif.onebot_private")}</SelectItem>
+                        <SelectItem value="group">{t("notif.onebot_group")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>{onebotMessageType === "private" ? "用户 QQ 号" : "群号"}</Label>
+                    <Label>{onebotMessageType === "private" ? t("notif.onebot_private_id") : t("notif.onebot_group_id")}</Label>
                     <Input
                       value={onebotTargetId}
                       onChange={(e) => setOnebotTargetId(e.target.value)}
-                      placeholder={onebotMessageType === "private" ? "例如：123456789" : "例如：987654321"}
+                      placeholder={onebotMessageType === "private" ? t("notif.onebot_id_placeholder_private") : t("notif.onebot_id_placeholder_group")}
                     />
                   </div>
                 </div>
@@ -589,7 +670,7 @@ export function NotificationsPage() {
                     placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
                   />
                   <p className="text-xs text-muted-foreground">
-                    从 <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@BotFather</a> 获取，格式为 <code className="bg-muted px-1 rounded">数字:字母数字混合</code>
+                    {t("notif.telegram_token_hint")}
                   </p>
                 </div>
 
@@ -599,7 +680,7 @@ export function NotificationsPage() {
                     <Input
                       value={telegramChatId}
                       onChange={(e) => setTelegramChatId(e.target.value)}
-                      placeholder="例如：123456789 或 -1001234567890"
+                      placeholder={t("notif.telegram_chat_placeholder")}
                       className="flex-1"
                     />
                     <Button
@@ -613,19 +694,19 @@ export function NotificationsPage() {
                       {fetchingChatId ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        "自动获取"
+                        t("notif.telegram_fetch")
                       )}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    支持私聊、群组或频道的 Chat ID。先给机器人发送一条消息，然后点击"自动获取"
+                    {t("notif.telegram_chat_hint")}
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t("notif.telegram_silent")}</Label>
-                    <p className="text-xs text-muted-foreground">{t("notif.telegram_silent")}</p>
+                    <p className="text-xs text-muted-foreground">{t("notif.telegram_silent_desc")}</p>
                   </div>
                   <Switch checked={telegramSilent} onCheckedChange={setTelegramSilent} />
                 </div>
@@ -669,12 +750,68 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>消息体模板 (支持变量: {"{title}"}, {"{message}"}, {"{subscription}"})</Label>
+                  <Label>{t("notif.webhook_body_label")}</Label>
                   <textarea
                     className="w-full min-h-[100px] px-3 py-2 text-sm rounded-md border bg-background font-mono"
                     value={webhookBodyTemplate}
                     onChange={(e) => setWebhookBodyTemplate(e.target.value)}
                     placeholder='{"text": "{title}: {message}"}'
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Discord 配置 */}
+            {formType === "discord" && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label>{t("notif.discord_url")}</Label>
+                  <Input
+                    value={discordUrl}
+                    onChange={(e) => setDiscordUrl(e.target.value)}
+                    placeholder="https://discord.com/api/webhooks/..."
+                  />
+                  <p className="text-xs text-muted-foreground">{t("notif.discord_url_hint")}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("notif.discord_username")}</Label>
+                  <Input
+                    value={discordUsername}
+                    onChange={(e) => setDiscordUsername(e.target.value)}
+                    placeholder={t("notif.discord_username_placeholder")}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* WeChat Bot 配置 */}
+            {formType === "wechat" && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label>{t("notif.wechat_url")}</Label>
+                  <Input
+                    value={wechatUrl}
+                    onChange={(e) => setWechatUrl(e.target.value)}
+                    placeholder="http://127.0.0.1:5700/notify"
+                  />
+                  <p className="text-xs text-muted-foreground">{t("notif.wechat_url_hint")}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("notif.wechat_to")}</Label>
+                  <Input
+                    value={wechatTo}
+                    onChange={(e) => setWechatTo(e.target.value)}
+                    placeholder="wxid_xxxxxxxxx"
+                  />
+                  <p className="text-xs text-muted-foreground">{t("notif.wechat_to_hint")}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("notif.wechat_token")}</Label>
+                  <Input
+                    type="password"
+                    value={wechatToken}
+                    onChange={(e) => setWechatToken(e.target.value)}
+                    placeholder={t("notif.wechat_token_placeholder")}
                   />
                 </div>
               </div>
@@ -718,7 +855,7 @@ export function NotificationsPage() {
                       type="password"
                       value={smtpPassword}
                       onChange={(e) => setSmtpPassword(e.target.value)}
-                      placeholder={editingChannel ? "留空则不修改" : ""}
+                      placeholder={editingChannel ? t("notif.onebot_token_placeholder") : ""}
                     />
                   </div>
                 </div>

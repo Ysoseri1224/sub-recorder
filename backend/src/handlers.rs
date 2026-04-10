@@ -835,6 +835,8 @@ pub async fn test_notification(body: web::Json<TestNotificationRequest>) -> Http
         "onebot" => do_test_onebot(&body.config).await,
         "telegram" => do_test_telegram(&body.config).await,
         "webhook" => do_test_webhook(&body.config).await,
+        "discord" => do_test_discord(&body.config).await,
+        "wechat" => do_test_wechat(&body.config).await,
         _ => HttpResponse::BadRequest().json(ApiResponse::<()>::err("不支持的通知类型".to_string())),
     }
 }
@@ -1035,6 +1037,95 @@ async fn do_test_onebot(config: &serde_json::Value) -> HttpResponse {
         Err(e) => {
             log::error!("OneBot failed: {}", e);
             HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("发送失败: {}", e)))
+        }
+    }
+}
+
+async fn do_test_discord(config: &serde_json::Value) -> HttpResponse {
+    use crate::models::DiscordChannelConfig;
+
+    let cfg: DiscordChannelConfig = match serde_json::from_value(config.clone()) {
+        Ok(c) => c,
+        Err(e) => return HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("配置解析失败: {}", e))),
+    };
+
+    if cfg.url.is_empty() {
+        return HttpResponse::BadRequest().json(ApiResponse::<()>::err("Discord Webhook URL 不能为空".to_string()));
+    }
+
+    let mut body = serde_json::json!({
+        "content": "Sub Recorder 测试消息\n如果您收到此消息，说明 Discord Webhook 配置正确。"
+    });
+
+    if !cfg.username.is_empty() {
+        body["username"] = serde_json::Value::String(cfg.username.clone());
+    }
+
+    log::info!("Testing Discord Webhook: {}", cfg.url);
+
+    let client = reqwest::Client::new();
+    match client.post(&cfg.url).json(&body).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() || status.as_u16() == 204 {
+                HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({"success": true, "message": "测试消息已发送"})))
+            } else {
+                let body_text = resp.text().await.unwrap_or_default();
+                log::error!("Discord error: {} {}", status, body_text);
+                HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("Discord 返回 {}: {}", status, body_text)))
+            }
+        }
+        Err(e) => {
+            log::error!("Discord failed: {}", e);
+            HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("发送失败: {}", e)))
+        }
+    }
+}
+
+async fn do_test_wechat(config: &serde_json::Value) -> HttpResponse {
+    use crate::models::WechatChannelConfig;
+
+    let cfg: WechatChannelConfig = match serde_json::from_value(config.clone()) {
+        Ok(c) => c,
+        Err(e) => return HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("配置解析失败: {}", e))),
+    };
+
+    if cfg.url.is_empty() || cfg.to.is_empty() {
+        return HttpResponse::BadRequest().json(ApiResponse::<()>::err("推送地址和接收方不能为空".to_string()));
+    }
+
+    let mut body = serde_json::json!({
+        "to": cfg.to,
+        "msg": "Sub Recorder 测试消息\n如果您收到此消息，说明微信 Bot 配置正确。"
+    });
+
+    if !cfg.token.is_empty() {
+        body["token"] = serde_json::Value::String(cfg.token.clone());
+    }
+
+    log::info!("Testing WeChatBot: {} -> {}", cfg.url, cfg.to);
+
+    let client = reqwest::Client::new();
+    match client.post(&cfg.url).json(&body).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                let body_val: serde_json::Value = resp.json().await.unwrap_or_default();
+                if body_val.get("ok").and_then(|v| v.as_bool()).unwrap_or(true) {
+                    HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({"success": true, "message": "测试消息已发送"})))
+                } else {
+                    let msg = body_val.get("msg").and_then(|v| v.as_str()).unwrap_or("未知错误");
+                    HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("WeChatBot 错误: {}", msg)))
+                }
+            } else {
+                let body_text = resp.text().await.unwrap_or_default();
+                log::error!("WeChatBot error: {} {}", status, body_text);
+                HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("WeChatBot 返回 {}: {}", status, body_text)))
+            }
+        }
+        Err(e) => {
+            log::error!("WeChatBot failed: {}", e);
+            HttpResponse::BadRequest().json(ApiResponse::<()>::err(format!("发送失败，请确认 WeChatBot 正在运行: {}", e)))
         }
     }
 }
